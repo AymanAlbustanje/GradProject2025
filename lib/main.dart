@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'presentation/screens/home_screen.dart';
 import 'presentation/screens/discover_screen.dart';
 import 'presentation/screens/statistics_screen.dart';

@@ -13,34 +13,63 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Smart Stock',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
-        primaryColor: const Color(0xFF1E1E1E), // Set primary color for dark theme
-        scaffoldBackgroundColor: const Color(0xFF121212), // Background color for the app
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF1E1E1E), // AppBar background color
-          foregroundColor: Colors.white, // AppBar text and icon color
-          elevation: 0, // Remove AppBar shadow
-        ),
-        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          backgroundColor: Color(0xFF1E1E1E), // BottomNavigationBar background color
-          selectedItemColor: Colors.white, // Selected item color
-          unselectedItemColor: Colors.grey, // Unselected item color
-        ),
-        textTheme: const TextTheme(
-          bodyLarge: TextStyle(color: Colors.white), // Default text color
-          bodyMedium: TextStyle(color: Colors.white70), // Secondary text color
-        ),
-      ),
-      home: const MainScreen(),
+    // Create a ValueNotifier to manage the theme state
+    final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.dark);
+
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeNotifier,
+      builder: (context, themeMode, child) {
+        return MaterialApp(
+          title: 'Smart Stock',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData.light().copyWith(
+            primaryColor: const Color(0xFF54ACE3),
+            scaffoldBackgroundColor: Colors.white,
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Color(0xFF54ACE3),
+              foregroundColor: Colors.white,
+              elevation: 0,
+            ),
+            bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+              backgroundColor: Colors.white,
+              selectedItemColor: Color(0xFF54ACE3),
+              unselectedItemColor: Colors.grey,
+            ),
+            textTheme: const TextTheme(
+              bodyLarge: TextStyle(color: Colors.black),
+              bodyMedium: TextStyle(color: Colors.black87),
+            ),
+          ),
+          darkTheme: ThemeData.dark().copyWith(
+            primaryColor: const Color(0xFF1E1E1E),
+            scaffoldBackgroundColor: const Color(0xFF121212),
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Color(0xFF1E1E1E),
+              foregroundColor: Colors.white,
+              elevation: 0,
+            ),
+            bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+              backgroundColor: Color(0xFF1E1E1E),
+              selectedItemColor: Color(0xFF0078D4),
+              unselectedItemColor: Colors.grey,
+            ),
+            textTheme: const TextTheme(
+              bodyLarge: TextStyle(color: Colors.white),
+              bodyMedium: TextStyle(color: Colors.white70),
+            ),
+          ),
+          themeMode: themeMode, // Dynamically switch between light and dark themes
+          home: MainScreen(themeNotifier: themeNotifier),
+        );
+      },
     );
   }
 }
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  final ValueNotifier<ThemeMode> themeNotifier;
+
+  const MainScreen({super.key, required this.themeNotifier});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -63,14 +92,14 @@ class _MainScreenState extends State<MainScreen> {
       body: _screens[_currentIndex],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1E1E), // Background color for the bar
+          color: Theme.of(context).bottomNavigationBarTheme.backgroundColor, // Dynamic background color
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(20),
             topRight: Radius.circular(20),
-          ), // Rounded corners
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black, // Subtle shadow
+              color: Colors.black.withOpacity(0.2), // Subtle shadow
               spreadRadius: 2,
               blurRadius: 10,
               offset: const Offset(0, -2), // Shadow above the bar
@@ -81,10 +110,12 @@ class _MainScreenState extends State<MainScreen> {
           borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
           child: BottomNavigationBar(
             type: BottomNavigationBarType.fixed, // Fixed mode for consistent layout
-            backgroundColor: const Color(0xFF1E1E1E), // Match the container color
+            backgroundColor: Theme.of(context).bottomNavigationBarTheme.backgroundColor, // Dynamic background color
             currentIndex: _currentIndex,
-            selectedItemColor: const Color(0xFF0078D4), // Highlighted item color
-            unselectedItemColor: Colors.grey, // Unselected item color
+            selectedItemColor:
+                Theme.of(context).bottomNavigationBarTheme.selectedItemColor, // Dynamic selected item color
+            unselectedItemColor:
+                Theme.of(context).bottomNavigationBarTheme.unselectedItemColor, // Dynamic unselected item color
             showSelectedLabels: true, // Show labels for selected items
             showUnselectedLabels: false, // Hide labels for unselected items
             onTap: (index) {
@@ -96,7 +127,7 @@ class _MainScreenState extends State<MainScreen> {
               BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
               BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Discover'),
               BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Statistics'),
-              BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Settings'),
+              BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
             ],
           ),
         ),

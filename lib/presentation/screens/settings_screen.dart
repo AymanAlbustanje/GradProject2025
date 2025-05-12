@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:gradproject2025/main.dart'; // Assuming MainScreen is in main.dart or provides themeNotifier
 import 'package:gradproject2025/presentation/screens/login_screen.dart';
 import 'package:gradproject2025/presentation/screens/register_screen.dart';
 import 'acc_info_screen.dart';

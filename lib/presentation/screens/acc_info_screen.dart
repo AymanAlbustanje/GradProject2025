@@ -14,6 +14,7 @@ class AccInfoScreen extends StatefulWidget {
 }
 
 class _AccInfoScreenState extends State<AccInfoScreen> {
+  String token = '';
   String username = '';
   String email = '';
 
@@ -26,6 +27,7 @@ class _AccInfoScreenState extends State<AccInfoScreen> {
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
+      token =prefs.getString('token') ?? 'Unknown Token';
       username = prefs.getString('username') ?? 'Unknown User';
       email = prefs.getString('email') ?? 'Unknown Email';
     });
@@ -97,6 +99,13 @@ class _AccInfoScreenState extends State<AccInfoScreen> {
                   const SizedBox(height: 8),
                   Text(
                     email,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[400] : Colors.grey[700],
+                    ),
+                  ),
+                  Text(
+                    token,
                     style: TextStyle(
                       fontSize: 16,
                       color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[400] : Colors.grey[700],

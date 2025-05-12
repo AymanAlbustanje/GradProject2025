@@ -1,17 +1,30 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:gradproject2025/presentation/screens/main_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:gradproject2025/presentation/screens/login_screen.dart';
-import 'package:gradproject2025/presentation/screens/home_screen.dart';
-import 'package:gradproject2025/presentation/screens/discover_screen.dart';
-import 'package:gradproject2025/presentation/screens/statistics_screen.dart';
-import 'package:gradproject2025/presentation/screens/settings_screen.dart';
+import 'package:gradproject2025/Logic/blocs/item_bloc.dart';
 
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final isLoggedIn = await _checkIfLoggedIn();
+  runApp(MyApp(isLoggedIn: isLoggedIn));
+}
 
-void main() {
-  runApp(const MyApp());
+Future<bool> _checkIfLoggedIn() async {
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString('token');
+  if (kDebugMode) {
+    print('Token found: $token');
+  }
+  return token != null && token.isNotEmpty; // Return true if a valid token exists
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool isLoggedIn;
+
+  const MyApp({super.key, required this.isLoggedIn});
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +39,12 @@ class MyApp extends StatelessWidget {
           theme: _buildLightTheme(),
           darkTheme: _buildDarkTheme(),
           themeMode: themeMode,
-          home: LoginScreen(themeNotifier: themeNotifier),
+          home: isLoggedIn
+              ? BlocProvider(
+                  create: (context) => ItemBloc(),
+                  child: MainScreen(themeNotifier: themeNotifier),
+                )
+              : LoginScreen(themeNotifier: themeNotifier),
         );
       },
     );
@@ -39,12 +57,10 @@ class MyApp extends StatelessWidget {
         primary: const Color(0xFF0078D4),
         secondary: const Color(0xFF54ACE3),
         surface: Colors.white,
-        background: Colors.grey[100]!,
         error: Colors.redAccent,
         onPrimary: Colors.white,
         onSecondary: Colors.black,
         onSurface: Colors.black,
-        onBackground: Colors.black,
         onError: Colors.white,
       ),
       scaffoldBackgroundColor: Colors.grey[100],
@@ -99,12 +115,10 @@ class MyApp extends StatelessWidget {
         primary: const Color(0xFF0078D4),
         secondary: const Color(0xFF54ACE3),
         surface: const Color(0xFF1E1E1E),
-        background: const Color(0xFF121212),
         error: Colors.red,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: Colors.white,
-        onBackground: Colors.white,
         onError: Colors.black,
       ),
       scaffoldBackgroundColor: const Color(0xFF121212),
@@ -150,100 +164,6 @@ class MyApp extends StatelessWidget {
         titleLarge: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
       ),
       cardColor: const Color(0xFF2A2A2A),
-    );
-  }
-}
-
-class MainScreen extends StatefulWidget {
-  final ValueNotifier<ThemeMode> themeNotifier;
-
-  const MainScreen({super.key, required this.themeNotifier});
-
-  @override
-  State<MainScreen> createState() => _MainScreenState();
-}
-
-class _MainScreenState extends State<MainScreen> {
-  int _currentIndex = 0;
-
-  final List<Widget> _screens = [
-    const HomeScreen(),
-    const DiscoverScreen(),
-    const StatisticsScreen(),
-    SettingsScreen(themeNotifier: ValueNotifier(ThemeMode.dark)),
-  ];
-  
-  @override
-  void initState() {
-    super.initState();
-    _screens[3] = SettingsScreen(themeNotifier: widget.themeNotifier);
-  }
-
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('SmartStock'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () {
-            },
-          ),
-        ],
-      ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: _buildBottomNavigationBar(context),
-    );
-  }
-
-  Widget _buildBottomNavigationBar(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).bottomNavigationBarTheme.backgroundColor,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(51),
-            spreadRadius: 2,
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
-        child: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Theme.of(context).bottomNavigationBarTheme.backgroundColor,
-          currentIndex: _currentIndex,
-          selectedItemColor: Theme.of(context).bottomNavigationBarTheme.selectedItemColor,
-          unselectedItemColor: Theme.of(context).bottomNavigationBarTheme.unselectedItemColor,
-          showSelectedLabels: true,
-          showUnselectedLabels: false,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Discover'),
-            BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Statistics'),
-            BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../Logic/blocs/item_bloc.dart';
+import 'item_screen.dart';
 import 'discover_screen.dart';
 import 'statistics_screen.dart';
 import 'settings_screen.dart';
@@ -16,19 +18,6 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
-  late final List<Widget> _screens;
-
-  @override
-  void initState() {
-    super.initState();
-    _screens = [
-      const HomeScreen(),
-      const DiscoverScreen(),
-      const StatisticsScreen(),
-      SettingsScreen(themeNotifier: widget.themeNotifier),
-    ];
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -36,7 +25,7 @@ class _MainScreenState extends State<MainScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('SmartStock')),
-      body: _screens[_currentIndex],
+      body: _buildCurrentScreen(),
       bottomNavigationBar: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         height: 60,
@@ -69,5 +58,24 @@ class _MainScreenState extends State<MainScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildCurrentScreen() {
+    switch (_currentIndex) {
+      case 0:
+        // Wrap ItemScreen with BlocProvider
+        return BlocProvider(
+          create: (context) => ItemBloc(),
+          child: const ItemScreen(),
+        );
+      case 1:
+        return const DiscoverScreen();
+      case 2:
+        return const StatisticsScreen();
+      case 3:
+        return SettingsScreen(themeNotifier: widget.themeNotifier);
+      default:
+        return const SizedBox.shrink();
+    }
   }
 }

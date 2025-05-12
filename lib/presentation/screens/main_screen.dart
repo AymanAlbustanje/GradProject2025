@@ -58,7 +58,7 @@ class _MainScreenState extends State<MainScreen> {
             elevation: 0,
             selectedItemColor: const Color(0xFF0078D4),
             unselectedItemColor: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-            type: BottomNavigationBarType.fixed, // Ensures labels are always visible for 4 items
+            type: BottomNavigationBarType.fixed,
             items: const [
               BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
               BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Discover'),

@@ -33,11 +33,11 @@ class _AccInfoScreenState extends State<AccInfoScreen> {
 
   Future<void> _logout(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear(); // Clear all saved data
+    await prefs.clear();
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(
-        builder: (context) => LoginScreen(themeNotifier: widget.themeNotifier), // Pass themeNotifier
+        builder: (context) => LoginScreen(themeNotifier: widget.themeNotifier),
       ),
       (route) => false,
     );

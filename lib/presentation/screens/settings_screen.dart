@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gradproject2025/main.dart'; // Assuming MainScreen is in main.dart or provides themeNotifier
 import 'package:gradproject2025/presentation/screens/login_screen.dart';
 import 'package:gradproject2025/presentation/screens/register_screen.dart';
 import 'acc_info_screen.dart';
@@ -16,27 +17,24 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
           'Settings',
           style: TextStyle(
             color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
-            fontSize: 20,
           ),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        centerTitle: false,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          // Dark Mode Toggle
-          SwitchListTile(
-            title: const Text('Dark Mode'),
-            activeColor: const Color(0xFF0078D4),
-            secondary: const Icon(Icons.light_mode),
+          _buildSwitchTile(
+            title: 'Dark Mode',
+            icon: Theme.of(context).brightness == Brightness.dark ? Icons.dark_mode : Icons.light_mode,
             value: widget.themeNotifier.value == ThemeMode.dark,
             onChanged: (isDarkMode) {
               setState(() {
@@ -46,11 +44,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 10),
 
-          // Account Info
-          ListTile(
-            title: const Text('Account'),
-            leading: const Icon(Icons.person),
-            trailing: const Icon(Icons.arrow_forward_ios),
+          _buildNavigationTile(
+            context,
+            title: 'Account',
+            icon: Icons.person,
             onTap: () {
               Navigator.push(
                 context,
@@ -62,11 +59,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 10),
 
-          // Notification Settings
-          ListTile(
-            title: const Text('Notification Settings'),
-            leading: const Icon(Icons.notifications),
-            trailing: const Icon(Icons.arrow_forward_ios),
+          _buildNavigationTile(
+            context,
+            title: 'Notification Settings',
+            icon: Icons.notifications,
             onTap: () {
               Navigator.push(
                 context,
@@ -78,37 +74,103 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 10),
 
-          // Login Screen
-          ListTile(
-            title: const Text('Login Screen'),
-            leading: const Icon(Icons.login),
-            trailing: const Icon(Icons.arrow_forward_ios),
+          _buildNavigationTile(
+            context,
+            title: 'Login Screen (Test)',
+            icon: Icons.login,
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => LoginScreen(themeNotifier: widget.themeNotifier), // Pass themeNotifier
+                  builder: (context) => LoginScreen(themeNotifier: widget.themeNotifier),
                 ),
               );
             },
           ),
           const SizedBox(height: 10),
 
-          // Register Screen
-          ListTile(
-            title: const Text('Register Screen'),
-            leading: const Icon(Icons.app_registration),
-            trailing: const Icon(Icons.arrow_forward_ios),
+          _buildNavigationTile(
+            context,
+            title: 'Register Screen (Test)',
+            icon: Icons.app_registration,
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const RegisterScreen(),
+                  builder: (context) => RegisterScreen(themeNotifier: widget.themeNotifier),
                 ),
               );
             },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSwitchTile({
+    required String title,
+    required IconData icon,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor.withAlpha(200),
+        borderRadius: BorderRadius.circular(12.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(30),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: SwitchListTile(
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+        activeColor: const Color(0xFF0078D4),
+        secondary: Icon(icon, color: Theme.of(context).colorScheme.primary),
+        value: value,
+        onChanged: onChanged,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      ),
+    );
+  }
+
+  Widget _buildNavigationTile(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12.0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 18.0),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor.withAlpha(200),
+          borderRadius: BorderRadius.circular(12.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(30),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: Theme.of(context).colorScheme.primary, size: 26),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[600]),
+          ],
+        ),
       ),
     );
   }

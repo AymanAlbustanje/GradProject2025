@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:gradproject2025/presentation/screens/login_screen.dart';
-import 'package:gradproject2025/presentation/screens/register_screen.dart';
 import 'acc_info_screen.dart';
 import 'notification_settings_screen.dart';
 
@@ -72,35 +70,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           const SizedBox(height: 10),
-
-          _buildNavigationTile(
-            context,
-            title: 'Login Screen (Test)',
-            icon: Icons.login,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => LoginScreen(themeNotifier: widget.themeNotifier),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 10),
-
-          _buildNavigationTile(
-            context,
-            title: 'Register Screen (Test)',
-            icon: Icons.app_registration,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => RegisterScreen(themeNotifier: widget.themeNotifier),
-                ),
-              );
-            },
-          ),
         ],
       ),
     );

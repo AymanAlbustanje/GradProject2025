@@ -39,6 +39,15 @@ class DeleteItem extends ItemEvent {
   List<Object?> get props => [itemId];
 }
 
+class LoadHouseholdItems extends ItemEvent {
+  final String householdId;
+  
+  LoadHouseholdItems({required this.householdId});
+  
+  @override
+  List<Object?> get props => [householdId];
+}
+
 // States
 abstract class ItemState extends Equatable {
   @override
@@ -110,5 +119,15 @@ class ItemBloc extends Bloc<ItemEvent, ItemState> {
         emit(ItemLoaded(items: updatedItems));
       }
     });
+
+    on<LoadHouseholdItems>((event, emit) async {
+  emit(ItemLoading());
+  try {
+    final items = await itemsService.getHouseholdItems(event.householdId);
+    emit(ItemLoaded(items: items));
+  } catch (e) {
+    emit(ItemError(error: e.toString()));
+  }
+});
   }
 }

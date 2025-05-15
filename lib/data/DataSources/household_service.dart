@@ -9,7 +9,6 @@ class HouseholdService {
 
   HouseholdService({required this.baseUrl});
 
-  // Helper method to get the auth token
   Future<Map<String, String>> _getAuthHeaders() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token') ?? '';
@@ -73,27 +72,28 @@ class HouseholdService {
   }
 
   Future<void> joinHousehold(String inviteCode) async {
-    try {
-      final headers = await _getAuthHeaders();
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/households/join'),
-        headers: headers,
-        body: json.encode({'inviteCode': inviteCode}),
-      );
-      
-      if (kDebugMode) {
-        print('Join Household Response: ${response.statusCode}');
-        print('Response body: ${response.body}');
-      }
-      
-      if (response.statusCode != 200) {
-        throw Exception('Failed to join household: ${response.statusCode}');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error joining household: $e');
-      }
-      throw Exception('Failed to join household: $e');
+  try {
+    final headers = await _getAuthHeaders();
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/households/join'),
+      headers: headers,
+      body: json.encode({'inviteCode': inviteCode}),
+    );
+    
+    if (kDebugMode) {
+      print('Join Household Response: ${response.statusCode}');
+      print('Response body: ${response.body}');
     }
+    
+    if (response.statusCode != 200) {
+      final errorMsg = json.decode(response.body)['message'] ?? 'Failed to join household';
+      throw Exception(errorMsg);
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      print('Error joining household: $e');
+    }
+    throw Exception('Failed to join household: $e');
   }
+}
 }

@@ -1,7 +1,7 @@
 class Household {
-  final String id; // This is household_id
+  final String id;
   final String name;
-  final String? createdBy; // Will be null if not in the specific API response
+  final String? createdBy;
   final String inviteCode; 
 
   Household({

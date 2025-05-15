@@ -42,11 +42,12 @@ class HouseholdLoading extends HouseholdState {}
 
 class HouseholdLoaded extends HouseholdState {
   final List<Household> myHouseholds;
+  final bool joinSuccess;
 
-  HouseholdLoaded({required this.myHouseholds});
+  HouseholdLoaded({required this.myHouseholds, this.joinSuccess = false});
 
   @override
-  List<Object?> get props => [myHouseholds];
+  List<Object?> get props => [myHouseholds, joinSuccess];
 }
 
 class HouseholdError extends HouseholdState {
@@ -74,27 +75,22 @@ class HouseholdBloc extends Bloc<HouseholdEvent, HouseholdState> {
     });
 
     on<CreateHousehold>((event, emit) async {
-      // Emit loading state to indicate an operation is in progress
-      emit(HouseholdLoading()); 
+
+      emit(HouseholdLoading());
       try {
         await householdService.createHousehold(event.name);
-        // After successful creation, dispatch LoadHouseholds to refresh the list.
-        // This will fetch all households again, including the new one.
         add(LoadHouseholds());
       } catch (e) {
-        // If creation failed, emit an error state.
-        // You might want to include the previous state if you want to show old data + error.
         emit(HouseholdError(error: "Failed to create household: ${e.toString()}"));
       }
     });
 
     on<JoinHousehold>((event, emit) async {
-      // Emit loading state
       emit(HouseholdLoading());
       try {
         await householdService.joinHousehold(event.inviteCode);
-        // Refresh the list of households
-        add(LoadHouseholds());
+        final myHouseholds = await householdService.getMyHouseholds();
+        emit(HouseholdLoaded(myHouseholds: myHouseholds, joinSuccess: true));
       } catch (e) {
         emit(HouseholdError(error: "Failed to join household: ${e.toString()}"));
       }

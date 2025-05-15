@@ -2,9 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:gradproject2025/presentation/screens/main_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:gradproject2025/presentation/screens/login_screen.dart';
 import 'package:gradproject2025/Logic/blocs/item_bloc.dart';
+import 'package:gradproject2025/Logic/blocs/household_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,18 +34,21 @@ class MyApp extends StatelessWidget {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (context, themeMode, child) {
-        return MaterialApp(
-          title: 'Smart Stock',
-          debugShowCheckedModeBanner: false,
-          theme: _buildLightTheme(),
-          darkTheme: _buildDarkTheme(),
-          themeMode: themeMode,
-          home: isLoggedIn
-              ? BlocProvider(
-                  create: (context) => ItemBloc(),
-                  child: MainScreen(themeNotifier: themeNotifier),
-                )
-              : LoginScreen(themeNotifier: themeNotifier),
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider(create: (context) => ItemBloc()),
+            BlocProvider(create: (context) => HouseholdBloc()),
+          ],
+          child: MaterialApp(
+            title: 'Smart Stock',
+            debugShowCheckedModeBanner: false,
+            theme: _buildLightTheme(),
+            darkTheme: _buildDarkTheme(),
+            themeMode: themeMode,
+            home: isLoggedIn
+                ? MainScreen(themeNotifier: themeNotifier)
+                : LoginScreen(themeNotifier: themeNotifier),
+          ),
         );
       },
     );

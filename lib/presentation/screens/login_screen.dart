@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:gradproject2025/api_constants.dart';
 import '../../Logic/blocs/login_bloc.dart';
 import '../../data/DataSources/login_service.dart';
 import 'main_screen.dart';
@@ -13,18 +14,14 @@ class LoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => LoginBloc(
-        loginService: LoginService(baseUrl: 'http://192.168.1.100:3000'),
-      ),
+      create: (context) => LoginBloc(loginService: LoginService(baseUrl: ApiConstants.baseUrl)),
       child: Scaffold(
         body: BlocConsumer<LoginBloc, LoginState>(
           listener: (context, state) {
             if (state is LoginSuccess) {
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => MainScreen(themeNotifier: themeNotifier),
-                ),
+                MaterialPageRoute(builder: (context) => MainScreen(themeNotifier: themeNotifier)),
               );
             } else if (state is LoginFailure) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.error)));
@@ -92,9 +89,9 @@ class LoginScreen extends StatelessWidget {
                         if (email.isNotEmpty && password.isNotEmpty) {
                           context.read<LoginBloc>().add(LoginSubmitted(email: email, password: password));
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please enter both email and password.')),
-                          );
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(const SnackBar(content: Text('Please enter both email and password.')));
                         }
                       },
                       style: ElevatedButton.styleFrom(
@@ -109,9 +106,7 @@ class LoginScreen extends StatelessWidget {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (context) => RegisterScreen(themeNotifier: themeNotifier),
-                          ),
+                          MaterialPageRoute(builder: (context) => RegisterScreen(themeNotifier: themeNotifier)),
                         );
                       },
                       child: const Text('Don’t have an account? Register', style: TextStyle(color: Color(0xFF0078D4))),

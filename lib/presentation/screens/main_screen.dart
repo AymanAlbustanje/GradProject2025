@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:gradproject2025/Logic/blocs/household_bloc.dart';
 import '../../Logic/blocs/item_bloc.dart';
 import 'item_screen.dart';
 import 'discover_screen.dart';
 import 'statistics_screen.dart';
 import 'settings_screen.dart';
+import 'household_screen.dart';
 
 class MainScreen extends StatefulWidget {
   final ValueNotifier<ThemeMode> themeNotifier;
@@ -24,7 +26,27 @@ class _MainScreenState extends State<MainScreen> {
     final navBarBackgroundColor = isDarkMode ? Colors.grey[850] : Colors.white;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('SmartStock')),
+      appBar: AppBar(
+        title: const Text('SmartStock'),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'add') {
+                _showAddHouseholdDialog(context);
+              } else if (value == 'view') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const HouseholdScreen()),
+                );
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 'add', child: Text('Create a Household')),
+              const PopupMenuItem(value: 'view', child: Text('Show My Households')),
+            ],
+          ),
+        ],
+      ),
       body: _buildCurrentScreen(),
       bottomNavigationBar: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -49,8 +71,8 @@ class _MainScreenState extends State<MainScreen> {
             unselectedItemColor: isDarkMode ? Colors.grey[400] : Colors.grey[600],
             type: BottomNavigationBarType.fixed,
             items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-              BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Discover'),
+              BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
+              BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'To Buy'),
               BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Statistics'),
               BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
             ],
@@ -63,7 +85,6 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildCurrentScreen() {
     switch (_currentIndex) {
       case 0:
-        // Wrap ItemScreen with BlocProvider
         return BlocProvider(
           create: (context) => ItemBloc(),
           child: const ItemScreen(),
@@ -77,5 +98,42 @@ class _MainScreenState extends State<MainScreen> {
       default:
         return const SizedBox.shrink();
     }
+  }
+
+  void _showAddHouseholdDialog(BuildContext context) {
+    final TextEditingController householdNameController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Create Household'),
+          content: TextField(
+            controller: householdNameController,
+            decoration: const InputDecoration(labelText: 'Household Name'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final householdName = householdNameController.text.trim();
+                if (householdName.isNotEmpty) {
+                  // Call backend to create household
+                  context.read<HouseholdBloc>().add(CreateHousehold(name: householdName));
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Household created successfully!')),
+                  );
+                }
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

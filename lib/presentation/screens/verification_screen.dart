@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:gradproject2025/api_constants.dart';
 import '../../Logic/blocs/verification_bloc.dart';
 import '../../data/DataSources/verification_service.dart';
 import 'login_screen.dart';
@@ -14,7 +15,7 @@ class VerificationScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => VerificationBloc(
-        verificationService: VerificationService(baseUrl: 'http://192.168.1.100:3000'),
+        verificationService: VerificationService(baseUrl: ApiConstants.baseUrl),
       ),
       child: Scaffold(
         body: BlocConsumer<VerificationBloc, VerificationState>(

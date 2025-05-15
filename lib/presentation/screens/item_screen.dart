@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:gradproject2025/api_constants.dart';
 import 'package:gradproject2025/data/Models/item_model.dart';
 import '../../Logic/blocs/item_bloc.dart';
 import '../../data/DataSources/items_service.dart';
@@ -11,7 +12,7 @@ class ItemScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final itemsService = ItemsService(baseUrl: 'http://192.168.1.100:3000');
+    final itemsService = ItemsService(baseUrl: ApiConstants.baseUrl);
     
     // Load items when the screen is built
     context.read<ItemBloc>().add(LoadItems());

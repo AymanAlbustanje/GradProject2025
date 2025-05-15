@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:gradproject2025/api_constants.dart';
 import 'package:gradproject2025/data/Models/item_model.dart';
 import 'package:gradproject2025/data/DataSources/items_service.dart';
 
@@ -68,7 +69,7 @@ class ItemError extends ItemState {
 
 // Bloc
 class ItemBloc extends Bloc<ItemEvent, ItemState> {
-  final itemsService = ItemsService(baseUrl: 'http://192.168.1.100:3000');
+  final itemsService = ItemsService(baseUrl: ApiConstants.baseUrl);
 
   ItemBloc() : super(ItemInitial()) {
     on<LoadItems>((event, emit) async {

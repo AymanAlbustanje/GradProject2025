@@ -19,18 +19,12 @@ class HouseholdScreen extends StatelessWidget {
         body: BlocConsumer<HouseholdBloc, HouseholdState>(
           listener: (context, state) {
             if (state is HouseholdError) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.error),
-                  backgroundColor: Colors.red,
-                ),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(state.error), backgroundColor: Colors.red));
             } else if (state is HouseholdLoaded && state.joinSuccess) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Successfully joined household!'),
-                  backgroundColor: Colors.green,
-                ),
+                const SnackBar(content: Text('Successfully joined household!'), backgroundColor: Colors.green),
               );
             }
           },
@@ -84,9 +78,7 @@ class HouseholdScreen extends StatelessWidget {
                                       style: OutlinedButton.styleFrom(
                                         foregroundColor: const Color(0xFF0078D4),
                                         padding: const EdgeInsets.symmetric(vertical: 12),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(30),
-                                        ),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                                       ),
                                     ),
                                   ),
@@ -94,7 +86,9 @@ class HouseholdScreen extends StatelessWidget {
                                   Expanded(
                                     child: ElevatedButton.icon(
                                       onPressed: () {
-                                        Clipboard.setData(ClipboardData(text: household.inviteCode));
+                                        Clipboard.setData(
+                                          ClipboardData(text: household.inviteCode ?? 'No invite code available'),
+                                        );
                                         ScaffoldMessenger.of(context).showSnackBar(
                                           SnackBar(
                                             content: Text('Invite code for "${household.name}" copied!'),
@@ -108,9 +102,7 @@ class HouseholdScreen extends StatelessWidget {
                                         backgroundColor: const Color(0xFF0078D4),
                                         foregroundColor: Colors.white,
                                         padding: const EdgeInsets.symmetric(vertical: 12),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(30),
-                                        ),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                                       ),
                                     ),
                                   ),
@@ -165,29 +157,28 @@ class HouseholdScreen extends StatelessWidget {
                                 backgroundColor: const Color(0xFF0078D4),
                                 foregroundColor: Colors.white,
                               ),
-                              onPressed: state is HouseholdLoading 
-                                ? null
-                                : () {
-                                    final inviteCode = inviteCodeController.text.trim();
-                                    if (inviteCode.isNotEmpty) {
-                                      context.read<HouseholdBloc>().add(JoinHousehold(inviteCode: inviteCode));
-                                      inviteCodeController.clear();
-                                    } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Please enter an invitation code')),
-                                      );
-                                    }
-                                  },
-                              icon: state is HouseholdLoading
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.login),
+                              onPressed:
+                                  state is HouseholdLoading
+                                      ? null
+                                      : () {
+                                        final inviteCode = inviteCodeController.text.trim();
+                                        if (inviteCode.isNotEmpty) {
+                                          context.read<HouseholdBloc>().add(JoinHousehold(inviteCode: inviteCode));
+                                          inviteCodeController.clear();
+                                        } else {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Please enter an invitation code')),
+                                          );
+                                        }
+                                      },
+                              icon:
+                                  state is HouseholdLoading
+                                      ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                      )
+                                      : const Icon(Icons.login),
                               label: Text(state is HouseholdLoading ? 'JOINING...' : 'JOIN HOUSEHOLD'),
                             ),
                           ),

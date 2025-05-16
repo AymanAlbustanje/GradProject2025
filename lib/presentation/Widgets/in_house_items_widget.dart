@@ -1,61 +1,137 @@
-// ignore_for_file: use_build_context_synchronously, deprecated_member_use
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/household_bloc.dart';
-import 'package:gradproject2025/api_constants.dart';
+import 'package:gradproject2025/Logic/blocs/in_house_bloc.dart';
 import 'package:gradproject2025/data/Models/household_model.dart';
 import 'package:gradproject2025/data/Models/item_model.dart';
-import '../../Logic/blocs/item_bloc.dart';
-import '../../data/DataSources/items_service.dart';
+import 'package:gradproject2025/data/DataSources/in_house_service.dart';
 
-class ItemScreen extends StatelessWidget {
-  const ItemScreen({super.key});
+class InHouseItemsWidget extends StatelessWidget {
+  const InHouseItemsWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final itemsService = ItemsService(baseUrl: ApiConstants.baseUrl);
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
-    // Load items when the screen is built
-    context.read<ItemBloc>().add(LoadItems());
+    return Column(
+      children: [
+        // Section Divider
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Your In-House Items',
+            style: TextStyle(
+              fontSize: 18, 
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).textTheme.titleLarge?.color,
+            ),
+          ),
+        ),
 
-    return Scaffold(
-      body: BlocBuilder<ItemBloc, ItemState>(
-        builder: (context, state) {
-          if (state is ItemLoading) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (state is ItemLoaded) {
-            final items = state.items;
-            return items.isEmpty
-                ? const Center(child: Text('No items added yet!', style: TextStyle(fontSize: 18)))
-                : ListView.builder(
-                  itemCount: items.length,
-                  itemBuilder: (context, index) {
-                    return ListTile(
-                      title: Text(items[index].name),
-                      leading:
-                          items[index].photoUrl != null
-                              ? Image.network(items[index].photoUrl!, width: 50, height: 50, fit: BoxFit.cover)
-                              : const Icon(Icons.inventory),
-                    );
-                  },
+        // Section 2: In-House Items List
+        Expanded(
+          child: BlocBuilder<InHouseBloc, ItemState>(
+            builder: (context, state) {
+              if (state is ItemLoading) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (state is ItemLoaded) {
+                final items = state.items;
+                return items.isEmpty
+                    ? _buildEmptyState()
+                    : _buildItemsList(items, isDarkMode);
+              } else if (state is ItemError) {
+                return Center(
+                  child: Text(
+                    state.error, 
+                    style: const TextStyle(color: Colors.red, fontSize: 18),
+                  ),
                 );
-          } else if (state is ItemError) {
-            return Center(child: Text(state.error, style: const TextStyle(color: Colors.red, fontSize: 18)));
-          }
-          return const SizedBox.shrink();
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _showAddItemDialog(context, itemsService);
-        },
-        child: const Icon(Icons.add),
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.inventory_2_outlined, 
+            size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            'No items added yet!', 
+            style: TextStyle(
+              fontSize: 18, 
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Add items using the + button',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[500],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-void _showAddItemDialog(BuildContext parentContext, ItemsService itemsService) {
+  Widget _buildItemsList(List<Item> items, bool isDarkMode) {
+    return ListView.builder(
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        return Card(
+          margin: const EdgeInsets.symmetric(
+            horizontal: 12.0, vertical: 4.0),
+          elevation: 0.5,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.0),
+            side: BorderSide(
+              color: isDarkMode 
+                  ? Colors.grey[800]! 
+                  : Colors.grey[300]!,
+              width: 0.5,
+            ),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16.0, vertical: 8.0),
+            title: Text(
+              items[index].name,
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+            leading: items[index].photoUrl != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8.0),
+                    child: Image.network(
+                      items[index].photoUrl!, 
+                      width: 50, 
+                      height: 50, 
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => 
+                        const Icon(Icons.broken_image, size: 40),
+                    ),
+                  )
+                : const Icon(Icons.inventory, size: 40),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// Add Item Dialog functionality
+void showAddItemDialog(BuildContext parentContext, InHouseService itemsService) {
   final TextEditingController itemNameController = TextEditingController();
   final TextEditingController itemPhotoController = TextEditingController();
   final TextEditingController priceController = TextEditingController();
@@ -383,7 +459,7 @@ void _showAddItemDialog(BuildContext parentContext, ItemsService itemsService) {
                           if (success) {
                             // If saving to DB was successful, update the local state
                             final newItem = Item(name: itemName, photoUrl: itemPhoto);
-                            parentContext.read<ItemBloc>().add(AddItem(item: newItem));
+                            parentContext.read<InHouseBloc>().add(AddItem(item: newItem));
 
                             // Close the dialog and show a success message
                             Navigator.pop(context);
@@ -418,5 +494,4 @@ void _showAddItemDialog(BuildContext parentContext, ItemsService itemsService) {
       );
     },
   );
-}
 }

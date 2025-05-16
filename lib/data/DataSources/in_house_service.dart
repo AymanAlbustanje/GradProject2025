@@ -4,10 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:gradproject2025/data/Models/item_model.dart';
 
-class ItemsService {
+class InHouseService {
   final String baseUrl;
 
-  ItemsService({required this.baseUrl});
+  InHouseService({required this.baseUrl});
 
   // Get the authentication token from SharedPreferences
   Future<String?> _getToken() async {

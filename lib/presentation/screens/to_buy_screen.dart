@@ -4,8 +4,8 @@ import 'package:gradproject2025/Logic/blocs/to_buy_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/current_household_bloc.dart';
 import 'package:gradproject2025/data/Models/item_model.dart';
 
-class DiscoverScreen extends StatelessWidget {
-  const DiscoverScreen({super.key});
+class ToBuyScreen extends StatelessWidget {
+  const ToBuyScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +36,7 @@ class DiscoverScreen extends StatelessWidget {
                     icon: const Icon(Icons.add),
                     label: const Text('Add Item to Buy'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      backgroundColor: const Color.fromRGBO(31, 72, 118, 1),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -110,7 +110,7 @@ class DiscoverScreen extends StatelessWidget {
                     final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
                     if (currentHouseholdState is CurrentHouseholdSet) {
                       context.read<ToBuyBloc>().add(
-                        LoadToBuyItems(householdId: currentHouseholdState.household.id),
+                        LoadToBuyItems(householdId: currentHouseholdState.household.id.toString()),
                       );
                     }
                   },

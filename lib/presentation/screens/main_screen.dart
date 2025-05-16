@@ -1,15 +1,15 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/household_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/current_household_bloc.dart';
-import 'package:gradproject2025/Logic/blocs/item_bloc.dart';
+import 'package:gradproject2025/Logic/blocs/in_house_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/statistics_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/to_buy_bloc.dart';
 import 'package:gradproject2025/presentation/screens/to_buy_screen.dart';
 import 'package:gradproject2025/data/Models/household_model.dart';
-import 'item_screen.dart';
+import 'in_house_screen.dart';
 import 'statistics_screen.dart';
 import 'settings_screen.dart';
 import 'household_screen.dart';
@@ -73,12 +73,12 @@ class _MainScreenState extends State<MainScreen> {
                       margin: const EdgeInsets.only(right: 8),
                       child: PopupMenuButton<Household>(
                         tooltip: 'Switch Household',
-                        position: PopupMenuPosition.under,
-                        onSelected: (household) {
-                          context.read<CurrentHouseholdBloc>().add(
-                            SetCurrentHousehold(household: household),
-                          );
-                        },
+  position: PopupMenuPosition.under,
+  onSelected: (household) {
+    context.read<CurrentHouseholdBloc>().add(
+      SetCurrentHousehold(household: household),
+    );
+  },
                         offset: const Offset(0, 8),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -258,8 +258,8 @@ class _MainScreenState extends State<MainScreen> {
             unselectedItemColor: isDarkMode ? Colors.grey[400] : Colors.grey[600],
             type: BottomNavigationBarType.fixed,
             items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
               BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'To Buy'),
+              BottomNavigationBarItem(icon: Icon(Icons.inventory), label: 'In House'),
               BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Statistics'),
               BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
             ],
@@ -269,26 +269,29 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildCurrentScreen(String householdId) {
+  Widget _buildCurrentScreen(dynamic householdId) {
+  final String householdIdStr = householdId.toString();
+  
   switch (_currentIndex) {
     case 0:
       return BlocProvider(
-        create: (context) => ItemBloc()..add(LoadHouseholdItems(householdId: householdId)),
-        child: const ItemScreen(),
+        create: (context) => ToBuyBloc()..add(LoadToBuyItems(householdId: householdIdStr)),
+        child: const ToBuyScreen(),
       );
     case 1:
       return BlocProvider(
-        create: (context) => ToBuyBloc()..add(LoadToBuyItems(householdId: householdId)),
-        child: const DiscoverScreen(),
+        create: (context) => InHouseBloc()..add(LoadHouseholdItems(householdId: householdIdStr)),
+        child: const InHouseScreen(),
       );
     case 2:
       return BlocProvider(
-        create: (context) => StatisticsBloc()..add(LoadStatistics(householdId: householdId)),
+        create: (context) => StatisticsBloc()..add(LoadStatistics(householdId: householdIdStr)),
         child: const StatisticsScreen(),
       );
     default:
       return const SizedBox.shrink();
   }
+}
 }
 
   void _showAddHouseholdDialog(BuildContext context) {
@@ -380,4 +383,3 @@ class _MainScreenState extends State<MainScreen> {
       },
     );
   }
-}

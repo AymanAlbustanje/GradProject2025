@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:gradproject2025/presentation/screens/main_screen.dart';
 import 'package:gradproject2025/presentation/screens/login_screen.dart';
-import 'package:gradproject2025/Logic/blocs/item_bloc.dart';
+import 'package:gradproject2025/Logic/blocs/in_house_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/household_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/current_household_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -37,7 +37,7 @@ class MyApp extends StatelessWidget {
       builder: (context, themeMode, child) {
         return MultiBlocProvider(
           providers: [
-            BlocProvider(create: (context) => ItemBloc()),
+            BlocProvider(create: (context) => InHouseBloc()),
             BlocProvider(create: (context) => HouseholdBloc()),
             BlocProvider(create: (context) => CurrentHouseholdBloc()..add(LoadCurrentHousehold())),
           ],

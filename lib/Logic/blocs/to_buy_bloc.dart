@@ -1,7 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:gradproject2025/data/Models/item_model.dart';
-import 'package:gradproject2025/data/DataSources/items_service.dart';
+import 'package:gradproject2025/data/DataSources/in_house_service.dart';
 import 'package:gradproject2025/api_constants.dart';
 
 // Events
@@ -67,7 +67,7 @@ class ToBuyError extends ToBuyState {
 
 // Bloc
 class ToBuyBloc extends Bloc<ToBuyEvent, ToBuyState> {
-  final itemsService = ItemsService(baseUrl: ApiConstants.baseUrl);
+  final itemsService = InHouseService(baseUrl: ApiConstants.baseUrl);
   
   ToBuyBloc() : super(ToBuyInitial()) {
     on<LoadToBuyItems>((event, emit) async {

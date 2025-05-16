@@ -34,6 +34,22 @@ class _InHouseScreenState extends State<InHouseScreen> with SingleTickerProvider
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
+
+    // Initial load of items for the currently selected household
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
+      if (currentHouseholdState is CurrentHouseholdSet) {
+        if (currentHouseholdState.household.id != null) {
+          context
+              .read<InHouseBloc>()
+              .add(LoadHouseholdItems(householdId: currentHouseholdState.household.id.toString()));
+        }
+      } else {
+        // Optionally, if no household is set initially, clear items or show a placeholder
+        // For example, if you have a ClearHouseholdItems event:
+        // context.read<InHouseBloc>().add(ClearHouseholdItems());
+      }
+    });
   }
 
   void _onSearchChanged() {
@@ -158,6 +174,7 @@ class _InHouseScreenState extends State<InHouseScreen> with SingleTickerProvider
 
   void _showAddToHouseholdForm(dynamic item) {
     final TextEditingController priceController = TextEditingController();
+    final TextEditingController photoUrlController = TextEditingController(); // New controller for photo URL
     final formKey = GlobalKey<FormState>();
     DateTime? selectedExpirationDate;
     dynamic selectedHouseholdId;
@@ -335,6 +352,33 @@ class _InHouseScreenState extends State<InHouseScreen> with SingleTickerProvider
                         },
                       ),
                       const SizedBox(height: 16),
+                      TextFormField( // New TextFormField for Photo URL
+                        controller: photoUrlController,
+                        style: TextStyle(color: textColor),
+                        keyboardType: TextInputType.url,
+                        decoration: InputDecoration(
+                          labelText: 'Photo URL (Optional)',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
+                          prefixIcon: Icon(Icons.link, color: primaryColor.withOpacity(0.8)),
+                          labelStyle: TextStyle(color: subtitleColor),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: primaryColor, width: 2.0),
+                            borderRadius: BorderRadius.circular(12.0),
+                          ),
+                          filled: true,
+                          fillColor:
+                              isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
+                        ),
+                        validator: (v) {
+                          if (v != null && v.isNotEmpty) {
+                            if (Uri.tryParse(v)?.hasAbsolutePath != true) {
+                              return 'Please enter a valid URL';
+                            }
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
                       InkWell(
                         onTap: () async {
                           final picked = await showDatePicker(
@@ -412,20 +456,26 @@ class _InHouseScreenState extends State<InHouseScreen> with SingleTickerProvider
                                 final prefs = await SharedPreferences.getInstance();
                                 final token = prefs.getString('token');
                                 if (token == null) throw Exception('Auth token not found');
+
+                                String finalItemPhotoUrl = photoUrlController.text.trim();
+                                if (finalItemPhotoUrl.isEmpty) {
+                                  finalItemPhotoUrl = item['item_photo'] ?? _defaultItemPhotoUrl;
+                                }
+
                                 final Map<String, dynamic> requestBody = {
                                   'householdId': selectedHouseholdId,
                                   'itemId': item['item_id'],
                                   'location': 'in_house',
                                   'price': double.parse(priceController.text.trim()),
-                                  'itemPhoto':
-                                      item['item_photo'] ?? _defaultItemPhotoUrl, // Use existing or default photo
+                                  'itemPhoto': finalItemPhotoUrl, // Use the determined photo URL
                                 };
-                                if (selectedExpirationDate != null)
+                                if (selectedExpirationDate != null) {
                                   requestBody['expirationDate'] =
                                       selectedExpirationDate!.toIso8601String().split('T')[0];
+                                }
 
                                 final response = await http.post(
-                                  Uri.parse('${ApiConstants.baseUrl}/api/household-items/add'),
+                                  Uri.parse('${ApiConstants.baseUrl}/api/household-items/add-existing'),
                                   headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
                                   body: jsonEncode(requestBody),
                                 );
@@ -481,6 +531,7 @@ class _InHouseScreenState extends State<InHouseScreen> with SingleTickerProvider
   void _showCreateAndAddItemForm(String itemNameFromSearch) {
     final TextEditingController itemNameController = TextEditingController(text: itemNameFromSearch);
     final TextEditingController priceController = TextEditingController();
+    final TextEditingController photoUrlController = TextEditingController(); // New controller for photo URL
     final formKey = GlobalKey<FormState>();
     DateTime? selectedExpirationDate;
     dynamic selectedHouseholdId;
@@ -636,6 +687,33 @@ class _InHouseScreenState extends State<InHouseScreen> with SingleTickerProvider
                           return null;
                         },
                       ),
+                       const SizedBox(height: 16),
+                      TextFormField( // New TextFormField for Photo URL
+                        controller: photoUrlController,
+                        style: TextStyle(color: textColor),
+                        keyboardType: TextInputType.url,
+                        decoration: InputDecoration(
+                          labelText: 'Photo URL (Optional)',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
+                          prefixIcon: Icon(Icons.link, color: primaryColor.withOpacity(0.8)),
+                          labelStyle: TextStyle(color: subtitleColor),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: primaryColor, width: 2.0),
+                            borderRadius: BorderRadius.circular(12.0),
+                          ),
+                          filled: true,
+                          fillColor:
+                              isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
+                        ),
+                        validator: (v) {
+                          if (v != null && v.isNotEmpty) {
+                            if (Uri.tryParse(v)?.hasAbsolutePath != true) {
+                              return 'Please enter a valid URL';
+                            }
+                          }
+                          return null;
+                        },
+                      ),
                       const SizedBox(height: 16),
                       InkWell(
                         onTap: () async {
@@ -715,12 +793,16 @@ class _InHouseScreenState extends State<InHouseScreen> with SingleTickerProvider
                                 final token = prefs.getString('token');
                                 if (token == null) throw Exception('Auth token not found');
 
-                                // Single API call to create item and add to household
+                                String finalItemPhotoUrl = photoUrlController.text.trim();
+                                if (finalItemPhotoUrl.isEmpty) {
+                                  finalItemPhotoUrl = _defaultItemPhotoUrl; // Use default for new items
+                                }
+
                                 final Map<String, dynamic> requestBody = {
                                   'itemName': itemNameController.text.trim(),
-                                  'itemPhoto': _defaultItemPhotoUrl, // Default photo for new global item
+                                  'itemPhoto': finalItemPhotoUrl, 
                                   'householdId': selectedHouseholdId,
-                                  'location': 'in_house', // As per backend requirement
+                                  'location': 'in_house', 
                                   'price': double.parse(priceController.text.trim()),
                                 };
                                 if (selectedExpirationDate != null) {
@@ -728,7 +810,6 @@ class _InHouseScreenState extends State<InHouseScreen> with SingleTickerProvider
                                       selectedExpirationDate!.toIso8601String().split('T')[0];
                                 }
 
-                                // Use the /api/items/create endpoint as per the error log
                                 final response = await http.post(
                                   Uri.parse('${ApiConstants.baseUrl}/api/items/create'),
                                   headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
@@ -747,7 +828,6 @@ class _InHouseScreenState extends State<InHouseScreen> with SingleTickerProvider
                                       ),
                                     );
                                   } else if (selectedHouseholdId != null) {
-                                    // Fallback if current household not set in BLoC but was selected in form
                                     context.read<InHouseBloc>().add(
                                       LoadHouseholdItems(householdId: selectedHouseholdId.toString()),
                                     );
@@ -761,7 +841,6 @@ class _InHouseScreenState extends State<InHouseScreen> with SingleTickerProvider
                                   );
                                 } else {
                                   final responseBody = jsonDecode(response.body);
-                                  // Check for specific validation error messages from backend
                                   String errorMessage = responseBody['message'] ?? 'Failed to create and add item.';
                                   if (responseBody['errors'] != null && responseBody['errors'] is List) {
                                     final errors = responseBody['errors'] as List;
@@ -896,135 +975,156 @@ class _InHouseScreenState extends State<InHouseScreen> with SingleTickerProvider
     final primaryColor = Theme.of(context).colorScheme.primary;
     final searchContainerBackgroundColor = Theme.of(context).scaffoldBackgroundColor;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('In-House Items')),
-      body: Column(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: searchContainerBackgroundColor,
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isDarkMode ? Colors.grey[800] : Colors.white,
-                      borderRadius: BorderRadius.circular(12.0),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 2, offset: const Offset(0, 1)),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            focusNode: _searchFocusNode,
-                            onSubmitted: (value) {
-                              if (value.trim().length >= 2) {
-                                _searchItems(value.trim());
-                              }
-                            },
-                            decoration: InputDecoration(
-                              prefixIcon: const Icon(Icons.search, size: 22),
-                              suffixIcon:
-                                  _searchController.text.isNotEmpty
-                                      ? IconButton(
-                                        icon: const Icon(Icons.clear, size: 18),
-                                        onPressed: () {
-                                          _searchController.clear();
-                                        },
-                                      )
-                                      : null,
-                              hintText: 'Search for items...',
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+    return BlocListener<CurrentHouseholdBloc, CurrentHouseholdState>(
+      listener: (context, state) {
+        if (state is CurrentHouseholdSet) {
+          if (state.household.id != null) {
+            context.read<InHouseBloc>().add(LoadHouseholdItems(householdId: state.household.id.toString()));
+          } else {
+            // Optionally clear items if household ID becomes null
+            // context.read<InHouseBloc>().add(ClearHouseholdItems());
+          }
+        } else if (state is CurrentHouseholdNotSet) {
+          // Optionally clear items when no household is selected
+          // context.read<InHouseBloc>().add(ClearHouseholdItems());
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(title: const Text('In-House Items')),
+        body: Column(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: searchContainerBackgroundColor,
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isDarkMode ? Colors.grey[800] : Colors.white,
+                        borderRadius: BorderRadius.circular(12.0),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 2, offset: const Offset(0, 1)),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _searchController,
+                              focusNode: _searchFocusNode,
+                              onSubmitted: (value) {
+                                if (value.trim().length >= 2) {
+                                  _searchItems(value.trim());
+                                }
+                              },
+                              decoration: InputDecoration(
+                                prefixIcon: const Icon(Icons.search, size: 22),
+                                suffixIcon:
+                                    _searchController.text.isNotEmpty
+                                        ? IconButton(
+                                          icon: const Icon(Icons.clear, size: 18),
+                                          onPressed: () {
+                                            _searchController.clear();
+                                            // Optionally, also clear search results immediately
+                                            setState(() {
+                                              _searchResults = [];
+                                              _isSearching = false;
+                                              _debounceTimer?.cancel();
+                                            });
+                                          },
+                                        )
+                                        : null,
+                                hintText: 'Search for items...',
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.fastOutSlowIn,
-                  child:
-                      _searchController.text.isNotEmpty
-                          ? Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 8.0),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        'Results for "${_searchController.text}"',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: primaryColor,
-                                          fontSize: 14,
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.fastOutSlowIn,
+                    child:
+                        _searchController.text.isNotEmpty
+                            ? Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 8.0),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          'Results for "${_searchController.text}"',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: primaryColor,
+                                            fontSize: 14,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                    ),
-                                    TextButton.icon(
-                                      icon: const Icon(Icons.close, size: 16),
-                                      label: const Text('Close'),
-                                      onPressed: () {
-                                        setState(() {
-                                          _searchController.clear();
-                                          _searchResults = [];
-                                          _isSearching = false;
-                                          _debounceTimer?.cancel();
-                                        });
-                                      },
-                                      style: TextButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        foregroundColor: primaryColor,
+                                      TextButton.icon(
+                                        icon: const Icon(Icons.close, size: 16),
+                                        label: const Text('Close'),
+                                        onPressed: () {
+                                          setState(() {
+                                            _searchController.clear();
+                                            _searchResults = [];
+                                            _isSearching = false;
+                                            _debounceTimer?.cancel();
+                                          });
+                                        },
+                                        style: TextButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          foregroundColor: primaryColor,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 300),
-                                transitionBuilder: (Widget child, Animation<double> animation) {
-                                  return FadeTransition(
-                                    opacity: animation,
-                                    child: SlideTransition(
-                                      position: Tween<Offset>(
-                                        begin: const Offset(0.0, 0.03),
-                                        end: Offset.zero,
-                                      ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
-                                      child: child,
-                                    ),
-                                  );
-                                },
-                                child: _buildDynamicSearchResultsWidget(),
-                              ),
-                            ],
-                          )
-                          : const SizedBox.shrink(key: ValueKey('no_search_active_results_area')),
-                ),
-              ],
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 300),
+                                  transitionBuilder: (Widget child, Animation<double> animation) {
+                                    return FadeTransition(
+                                      opacity: animation,
+                                      child: SlideTransition(
+                                        position: Tween<Offset>(
+                                          begin: const Offset(0.0, 0.03),
+                                          end: Offset.zero,
+                                        ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+                                        child: child,
+                                      ),
+                                    );
+                                  },
+                                  child: _buildDynamicSearchResultsWidget(),
+                                ),
+                              ],
+                            )
+                            : const SizedBox.shrink(key: ValueKey('no_search_active_results_area')),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Expanded(child: InHouseItemsWidget()),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: primaryColor,
-        onPressed: () {
-          _showCreateAndAddItemForm("");
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Create New Item (from FAB)')));
-        },
-        child: const Icon(Icons.add),
+            Expanded(child: InHouseItemsWidget()), // This widget displays items from InHouseBloc
+          ],
+        ),
+        floatingActionButton: FloatingActionButton(
+          backgroundColor: primaryColor,
+          onPressed: () {
+            // Pass an empty string or a default name if needed by the form
+            _showCreateAndAddItemForm(""); 
+          },
+          child: const Icon(Icons.add),
+        ),
       ),
     );
   }

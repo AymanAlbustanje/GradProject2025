@@ -193,6 +193,7 @@ class InHouseService {
   }
 
   // Get a household items
+  // Get a household items
   Future<List<Item>> getHouseholdItems(String householdId) async {
     try {
       final token = await _getToken();
@@ -204,7 +205,7 @@ class InHouseService {
       }
 
       final response = await http.get(
-        Uri.parse('$baseUrl/api/items/household/$householdId'),
+        Uri.parse('$baseUrl/api/household-items?householdId=$householdId'),
         headers: {'Authorization': 'Bearer $token'},
       );
 
@@ -214,8 +215,17 @@ class InHouseService {
       }
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((item) => Item.fromJson(item)).toList();
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        // Check if 'items' key exists and is a list
+        if (responseData.containsKey('items') && responseData['items'] is List) {
+          final List<dynamic> data = responseData['items'] as List<dynamic>;
+          return data.map((item) => Item.fromJson(item as Map<String, dynamic>)).toList();
+        } else {
+          if (kDebugMode) {
+            print('Failed to parse items: "items" key not found or not a list in response.');
+          }
+          return [];
+        }
       } else {
         if (kDebugMode) {
           print('Failed to fetch items. Status: ${response.statusCode}, Error: ${response.body}');

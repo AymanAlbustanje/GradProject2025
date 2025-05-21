@@ -40,9 +40,9 @@ class _InHouseScreenState extends State<InHouseScreen> with SingleTickerProvider
       final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
       if (currentHouseholdState is CurrentHouseholdSet) {
         if (currentHouseholdState.household.id != null) {
-          context
-              .read<InHouseBloc>()
-              .add(LoadHouseholdItems(householdId: currentHouseholdState.household.id.toString()));
+          context.read<InHouseBloc>().add(
+            LoadHouseholdItems(householdId: currentHouseholdState.household.id.toString()),
+          );
         }
       } else {
         // Optionally, if no household is set initially, clear items or show a placeholder
@@ -352,7 +352,8 @@ class _InHouseScreenState extends State<InHouseScreen> with SingleTickerProvider
                         },
                       ),
                       const SizedBox(height: 16),
-                      TextFormField( // New TextFormField for Photo URL
+                      TextFormField(
+                        // New TextFormField for Photo URL
                         controller: photoUrlController,
                         style: TextStyle(color: textColor),
                         keyboardType: TextInputType.url,
@@ -687,8 +688,9 @@ class _InHouseScreenState extends State<InHouseScreen> with SingleTickerProvider
                           return null;
                         },
                       ),
-                       const SizedBox(height: 16),
-                      TextFormField( // New TextFormField for Photo URL
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        // New TextFormField for Photo URL
                         controller: photoUrlController,
                         style: TextStyle(color: textColor),
                         keyboardType: TextInputType.url,
@@ -800,9 +802,9 @@ class _InHouseScreenState extends State<InHouseScreen> with SingleTickerProvider
 
                                 final Map<String, dynamic> requestBody = {
                                   'itemName': itemNameController.text.trim(),
-                                  'itemPhoto': finalItemPhotoUrl, 
+                                  'itemPhoto': finalItemPhotoUrl,
                                   'householdId': selectedHouseholdId,
-                                  'location': 'in_house', 
+                                  'location': 'in_house',
                                   'price': double.parse(priceController.text.trim()),
                                 };
                                 if (selectedExpirationDate != null) {
@@ -1121,7 +1123,7 @@ class _InHouseScreenState extends State<InHouseScreen> with SingleTickerProvider
           backgroundColor: primaryColor,
           onPressed: () {
             // Pass an empty string or a default name if needed by the form
-            _showCreateAndAddItemForm(""); 
+            _showCreateAndAddItemForm("");
           },
           child: const Icon(Icons.add),
         ),

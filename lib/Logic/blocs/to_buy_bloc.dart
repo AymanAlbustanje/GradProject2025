@@ -1,7 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:gradproject2025/data/Models/item_model.dart';
-import 'package:gradproject2025/data/DataSources/in_house_service.dart';
+import 'package:gradproject2025/data/DataSources/to_buy_service.dart';
 import 'package:gradproject2025/api_constants.dart';
 
 // Events
@@ -12,27 +12,27 @@ abstract class ToBuyEvent extends Equatable {
 
 class LoadToBuyItems extends ToBuyEvent {
   final String householdId;
-  
+
   LoadToBuyItems({required this.householdId});
-  
+
   @override
   List<Object?> get props => [householdId];
 }
 
 class AddToBuyItem extends ToBuyEvent {
   final Item item;
-  
+
   AddToBuyItem({required this.item});
-  
+
   @override
   List<Object?> get props => [item];
 }
 
 class RemoveToBuyItem extends ToBuyEvent {
   final String itemId;
-  
+
   RemoveToBuyItem({required this.itemId});
-  
+
   @override
   List<Object?> get props => [itemId];
 }
@@ -49,37 +49,37 @@ class ToBuyLoading extends ToBuyState {}
 
 class ToBuyLoaded extends ToBuyState {
   final List<Item> items;
-  
+
   ToBuyLoaded({required this.items});
-  
+
   @override
   List<Object?> get props => [items];
 }
 
 class ToBuyError extends ToBuyState {
   final String error;
-  
+
   ToBuyError({required this.error});
-  
+
   @override
   List<Object?> get props => [error];
 }
 
 // Bloc
 class ToBuyBloc extends Bloc<ToBuyEvent, ToBuyState> {
-  final itemsService = InHouseService(baseUrl: ApiConstants.baseUrl);
-  
+  final toBuyService = ToBuyService(baseUrl: ApiConstants.baseUrl);
+
   ToBuyBloc() : super(ToBuyInitial()) {
     on<LoadToBuyItems>((event, emit) async {
       emit(ToBuyLoading());
       try {
-        final items = await itemsService.getToBuyItems(event.householdId);
+        final items = await toBuyService.getToBuyItems(event.householdId);
         emit(ToBuyLoaded(items: items));
       } catch (e) {
         emit(ToBuyError(error: e.toString()));
       }
     });
-    
+
     on<AddToBuyItem>((event, emit) {
       if (state is ToBuyLoaded) {
         final currentState = state as ToBuyLoaded;
@@ -87,7 +87,7 @@ class ToBuyBloc extends Bloc<ToBuyEvent, ToBuyState> {
         emit(ToBuyLoaded(items: updatedItems));
       }
     });
-    
+
     on<RemoveToBuyItem>((event, emit) {
       if (state is ToBuyLoaded) {
         final currentState = state as ToBuyLoaded;

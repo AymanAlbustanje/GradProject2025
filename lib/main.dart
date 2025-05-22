@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:gradproject2025/Logic/blocs/to_buy_bloc.dart';
 import 'package:gradproject2025/presentation/screens/main_screen.dart';
 import 'package:gradproject2025/presentation/screens/login_screen.dart';
 import 'package:gradproject2025/Logic/blocs/in_house_bloc.dart';
@@ -40,6 +41,8 @@ class MyApp extends StatelessWidget {
             BlocProvider(create: (context) => InHouseBloc()),
             BlocProvider(create: (context) => HouseholdBloc()),
             BlocProvider(create: (context) => CurrentHouseholdBloc()..add(LoadCurrentHousehold())),
+            BlocProvider<ToBuyBloc>(create: (context) => ToBuyBloc(),
+),
           ],
           child: MaterialApp(
             debugShowCheckedModeBanner: false,

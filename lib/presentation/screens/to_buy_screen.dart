@@ -1,245 +1,407 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:gradproject2025/Logic/blocs/to_buy_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/current_household_bloc.dart';
+import 'package:gradproject2025/Logic/blocs/in_house_bloc.dart';
+import 'package:gradproject2025/Logic/blocs/to_buy_bloc.dart';
 import 'package:gradproject2025/data/Models/item_model.dart';
+import 'package:gradproject2025/data/DataSources/to_buy_service.dart';
+import 'package:gradproject2025/api_constants.dart';
+import 'package:intl/intl.dart';
 
-class ToBuyScreen extends StatelessWidget {
+class ToBuyScreen extends StatefulWidget {
   const ToBuyScreen({super.key});
+
+  @override
+  State<ToBuyScreen> createState() => _ToBuyScreenState();
+}
+
+class _ToBuyScreenState extends State<ToBuyScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _loadToBuyItems();
+  }
+
+  void _loadToBuyItems() {
+    final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
+    if (currentHouseholdState is CurrentHouseholdSet) {
+      // Ensure householdId is a String before passing to the event
+      final String householdIdStr = currentHouseholdState.household.id.toString();
+      context.read<ToBuyBloc>().add(LoadToBuyItems(householdId: householdIdStr));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    return BlocBuilder<ToBuyBloc, ToBuyState>(
-      builder: (context, state) {
-        if (state is ToBuyLoading) {
-          return const Center(child: CircularProgressIndicator());
-        } else if (state is ToBuyLoaded) {
-          final items = state.items;
-          if (items.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.shopping_cart_outlined, size: 64, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Your shopping list is empty',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      _showAddToShoppingListDialog(context);
-                    },
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Item to Buy'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color.fromRGBO(31, 72, 118, 1),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          } else {
-            return Column(
+    return Scaffold(
+      body: Column(
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.shopping_cart, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Shopping List',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.add_circle),
-                        tooltip: 'Add Item',
-                        onPressed: () {
-                          _showAddToShoppingListDialog(context);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    itemCount: items.length,
-                    itemBuilder: (context, index) {
-                      final item = items[index];
-                      return _buildShoppingItem(context, item, isDarkMode);
-                    },
-                  ),
-                ),
-              ],
-            );
-          }
-        } else if (state is ToBuyError) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
-                const SizedBox(height: 16),
                 Text(
-                  'Failed to load shopping list',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  state.error,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.red[400],
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    // Get current household id
-                    final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
-                    if (currentHouseholdState is CurrentHouseholdSet) {
-                      context.read<ToBuyBloc>().add(
-                        LoadToBuyItems(householdId: currentHouseholdState.household.id.toString()),
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Try Again'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
+                  'Your Shopping List',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).textTheme.titleLarge?.color,
                   ),
                 ),
+                //IconButton(icon: const Icon(Icons.refresh), tooltip: 'Refresh', onPressed: _loadToBuyItems),
               ],
             ),
-          );
-        } else {
-          return const Center(child: Text('No data available'));
-        }
-      },
-    );
-  }
+          ),
 
-  Widget _buildShoppingItem(BuildContext context, Item item, bool isDarkMode) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-        leading: CircleAvatar(
-          radius: 24,
-          backgroundColor: isDarkMode ? Colors.grey[800] : Colors.grey[200],
-          child: item.photoUrl != null
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: Image.network(
-                    item.photoUrl!,
-                    width: 48,
-                    height: 48,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Icon(Icons.shopping_bag, size: 24),
-                  ),
-                )
-              : const Icon(Icons.shopping_bag, size: 24),
-        ),
-        title: Text(
-          item.name,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(
-          'Added on ${_formatDate(DateTime.now())}',
-          style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.grey[400] : Colors.grey[600]),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.check_circle_outline),
-              tooltip: 'Mark as purchased',
-              onPressed: () {
-                _markItemAsPurchased(context, item);
+          // To Buy Items List
+          Expanded(
+            child: BlocConsumer<ToBuyBloc, ToBuyState>(
+              listener: (context, state) {
+                // Listen for state changes to handle errors if needed
+                if (state is ToBuyError) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Error: ${state.error}'), backgroundColor: Colors.red));
+                }
+              },
+              builder: (context, state) {
+                if (state is ToBuyLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (state is ToBuyLoaded) {
+                  final items = state.items;
+                  return items.isEmpty ? _buildEmptyState() : _buildItemsList(items, isDarkMode);
+                } else if (state is ToBuyError) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Error: ${state.error}',
+                          style: const TextStyle(color: Colors.red, fontSize: 18),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 24),
+                        ElevatedButton.icon(
+                          onPressed: _loadToBuyItems,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Try Again'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
               },
             ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              tooltip: 'Remove from list',
-              onPressed: () {
-                _removeItemFromList(context, item);
-              },
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.month}/${date.day}/${date.year}';
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.shopping_cart_outlined, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text('Your shopping list is empty', style: TextStyle(fontSize: 18, color: Colors.grey[600])),
+          const SizedBox(height: 8),
+          Text('Items moved from In-House will appear here', style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+        ],
+      ),
+    );
   }
 
-  void _markItemAsPurchased(BuildContext context, Item item) {
-    if (item.id != null) {
-      context.read<ToBuyBloc>().add(RemoveToBuyItem(itemId: item.id!));
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${item.name} marked as purchased'),
-          action: SnackBarAction(
-            label: 'UNDO',
-            onPressed: () {
-              context.read<ToBuyBloc>().add(AddToBuyItem(item: item));
-            },
+  Widget _buildItemsList(List<Item> items, bool isDarkMode) {
+    return ListView.builder(
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+          elevation: 0.5,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.0),
+            side: BorderSide(color: isDarkMode ? Colors.grey[800]! : Colors.grey[300]!, width: 0.5),
           ),
-        ),
-      );
-    }
-  }
-
-  void _removeItemFromList(BuildContext context, Item item) {
-    if (item.id != null) {
-      context.read<ToBuyBloc>().add(RemoveToBuyItem(itemId: item.id!));
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${item.name} removed from shopping list'),
-          action: SnackBarAction(
-            label: 'UNDO',
-            onPressed: () {
-              context.read<ToBuyBloc>().add(AddToBuyItem(item: item));
-            },
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+            leading:
+                item.photoUrl != null && item.photoUrl!.isNotEmpty
+                    ? ClipRRect(
+                      borderRadius: BorderRadius.circular(8.0),
+                      child: Image.network(
+                        item.photoUrl!,
+                        width: 50,
+                        height: 50,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.shopping_bag, size: 40),
+                      ),
+                    )
+                    : const Icon(Icons.shopping_bag, size: 40),
+            trailing: IconButton(
+              icon: const Icon(Icons.home_outlined, color: Colors.green),
+              tooltip: 'Move to In-House',
+              onPressed: () => _showMoveToHouseDialog(context, item),
+            ),
           ),
-        ),
-      );
-    }
+        );
+      },
+    );
   }
 
-  void _showAddToShoppingListDialog(BuildContext context) {
-    // Implementation for adding items to shopping list
-    // This could be implemented later
+  void _showMoveToHouseDialog(BuildContext context, Item item) {
+    // Check if item ID is available
+    if (item.id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot move item - missing item ID.')));
+      return;
+    }
+
+    // Get current household
+    final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
+    if (currentHouseholdState is! CurrentHouseholdSet) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a household first.')));
+      return;
+    }
+
+    final householdId = currentHouseholdState.household.id;
+    final priceController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    DateTime? selectedExpirationDate;
+
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final backgroundColor = isDarkMode ? const Color(0xFF1F1F1F) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
+    final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[700];
+
+    // Store reference to the parent/screen context
+    final parentContext = context;
+
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Add to Shopping List'),
-          content: const Text('This feature will be implemented soon!'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: backgroundColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
+              title: Row(
+                children: [
+                  Icon(Icons.home, color: primaryColor, size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Move ${item.name} to In-House',
+                      style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Purchased Item Details',
+                        style: TextStyle(color: subtitleColor, fontSize: 12, fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Price field
+                      TextFormField(
+                        controller: priceController,
+                        style: TextStyle(color: textColor),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(
+                          labelText: 'Price',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
+                          prefixIcon: Icon(Icons.attach_money, color: primaryColor.withOpacity(0.8)),
+                          labelStyle: TextStyle(color: subtitleColor),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: primaryColor, width: 2.0),
+                            borderRadius: BorderRadius.circular(12.0),
+                          ),
+                          filled: true,
+                          fillColor:
+                              isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) return 'Please enter a price';
+                          final price = double.tryParse(value.trim());
+                          if (price == null) return 'Please enter a valid number';
+                          if (price < 0) return 'Price cannot be negative';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Expiration date
+                      InkWell(
+                        onTap: () async {
+                          final DateTime? picked = await showDatePicker(
+                            context: dialogContext,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 1825)), // 5 years
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: Theme.of(context).colorScheme.copyWith(
+                                    primary: primaryColor,
+                                    onPrimary: Colors.white,
+                                    surface: backgroundColor,
+                                    onSurface: textColor,
+                                  ),
+                                  dialogBackgroundColor: backgroundColor,
+                                ),
+                                child: child!,
+                              );
+                            },
+                          );
+
+                          if (picked != null) {
+                            setState(() {
+                              selectedExpirationDate = picked;
+                            });
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(12.0),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: isDarkMode ? Colors.grey[700]! : Colors.grey[400]!),
+                            borderRadius: BorderRadius.circular(12.0),
+                            color: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.calendar_today, color: primaryColor.withOpacity(0.8), size: 20),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  selectedExpirationDate == null
+                                      ? 'Expiration Date (Optional)'
+                                      : 'Expires on: ${DateFormat.yMd().format(selectedExpirationDate!)}',
+                                  style: TextStyle(color: selectedExpirationDate == null ? subtitleColor : textColor),
+                                ),
+                              ),
+                              if (selectedExpirationDate != null)
+                                IconButton(
+                                  icon: Icon(Icons.clear, color: subtitleColor, size: 18),
+                                  onPressed: () {
+                                    setState(() {
+                                      selectedExpirationDate = null;
+                                    });
+                                  },
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  style: TextButton.styleFrom(foregroundColor: subtitleColor),
+                  child: const Text('CANCEL'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (formKey.currentState!.validate()) {
+                      final price = double.parse(priceController.text.trim());
+                      final toBuyService = ToBuyService(baseUrl: ApiConstants.baseUrl);
+
+                      // Show loading indicator
+                      showDialog(
+                        context: dialogContext,
+                        barrierDismissible: false,
+                        builder:
+                            (context) => Center(
+                              child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(primaryColor)),
+                            ),
+                      );
+
+                      final success = await toBuyService.moveItemToHouse(
+                        householdItemId: int.parse(item.id!),
+                        householdId: householdId,
+                        price: price,
+                        expirationDate: selectedExpirationDate,
+                      );
+
+                      // Close the loading indicator dialog
+                      if (dialogContext.mounted) {
+                        Navigator.pop(dialogContext);
+                      }
+
+                      // Close the main dialog
+                      if (dialogContext.mounted) {
+                        Navigator.pop(dialogContext);
+                      }
+
+                      // Only show one snackbar and refresh if successful
+                      if (parentContext.mounted) {
+                        if (success) {
+                          ScaffoldMessenger.of(parentContext).showSnackBar(
+                            SnackBar(
+                              content: Text('${item.name} moved to in-house.'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+
+                          // Use a simpler approach with the parent context
+                          Future.delayed(const Duration(milliseconds: 300), () {
+                            if (parentContext.mounted) {
+                              // Force immediate refresh with the parent context
+                              parentContext.read<ToBuyBloc>().add(LoadToBuyItems(householdId: householdId.toString()));
+                              parentContext.read<InHouseBloc>().add(
+                                LoadHouseholdItems(householdId: householdId.toString()),
+                              );
+                            }
+                          });
+                        } else {
+                          ScaffoldMessenger.of(parentContext).showSnackBar(
+                            const SnackBar(
+                              content: Text('Failed to move item to in-house. Please try again.'),
+                              backgroundColor: Colors.red,
+                              duration: Duration(seconds: 3),
+                            ),
+                          );
+                        }
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  ),
+                  child: const Text('MOVE TO IN-HOUSE'),
+                ),
+              ],
+            );
+          },
         );
       },
     );

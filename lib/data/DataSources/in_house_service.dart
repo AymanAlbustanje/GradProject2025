@@ -1,268 +1,145 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'package:gradproject2025/data/Models/item_model.dart';
+// Ensure this is present
 
 class InHouseService {
   final String baseUrl;
+  final String _defaultItemPhotoUrl = 'https://i.pinimg.com/736x/82/be/d4/82bed479344270067e3d2171379949b3.jpg';
 
   InHouseService({required this.baseUrl});
 
-  // Get the authentication token from SharedPreferences
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('token');
   }
 
-  // Add a new item to the database
-  Future<bool> addItem(
-    String itemName,
+  // Fetch in-house items for a household
+  Future<List<Item>> getHouseholdItems(String householdId) async {
+    final token = await _getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Authentication token not found');
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/household-items?householdId=$householdId&location=in_house'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (kDebugMode) {
+        print('===== GET IN-HOUSE ITEMS RESPONSE (Household ID: $householdId) =====');
+        print('Status code: ${response.statusCode}');
+        print('Body: ${response.body}');
+        print('================================================================');
+      }
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        if (data.containsKey('items') && data['items'] is List) {
+          final List<dynamic> itemsJson = data['items'];
+          return itemsJson.map((itemJson) => Item.fromJson(itemJson)).toList();
+        } else {
+          return [];
+        }
+      } else {
+        throw Exception('Failed to fetch in-house items. Status: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching in-house items: $e');
+      }
+      throw Exception('Failed to fetch in-house items: $e');
+    }
+  }
+
+  // Add a new item (creates a global item and then a household item)
+  // Corresponds to /api/items/create endpoint
+  Future<bool> addItem({
+    required String itemName, // Only keep the named parameter version
     String? itemPhoto,
-    int householdId,
-    double price,
+    required int householdId,
+    required double price,
     DateTime? expirationDate,
-  ) async {
+    String location = 'in_house',
+  }) async {
     try {
       final token = await _getToken();
       if (kDebugMode) {
-        print('Adding item: $itemName with photo: $itemPhoto');
-        print('Token: $token');
+        print('Attempting to add item: $itemName, Photo: $itemPhoto, Price: $price, Expiry: $expirationDate, Location: $location, HouseholdID: $householdId');
       }
 
       if (token == null || token.isEmpty) {
-        if (kDebugMode) {
-          print('Error: No authentication token found');
-        }
+        if (kDebugMode) print('Authentication token is missing for addItem.');
         return false;
       }
 
-      // Format the date to ISO format if it exists
-      String? formattedDate;
+      String? formattedExpirationDate;
       if (expirationDate != null) {
-        formattedDate = expirationDate.toIso8601String().split('T')[0]; // Get YYYY-MM-DD format
+        formattedExpirationDate = expirationDate.toIso8601String().split('T')[0]; // YYYY-MM-DD
       }
 
-      // Make the API request with all required fields
+      // Use provided photo, or default if null/empty, or let backend handle default if itemPhoto is truly optional there
+      final String photoToSubmit = (itemPhoto != null && itemPhoto.trim().isNotEmpty)
+          ? itemPhoto.trim()
+          : _defaultItemPhotoUrl; // Backend /api/items/create expects itemPhoto
+
       final response = await http.post(
         Uri.parse('$baseUrl/api/items/create'),
-        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
         body: jsonEncode({
           'itemName': itemName,
-          'itemPhoto': itemPhoto,
-          'householdId': householdId,
-          'location': 'in_house', // Default as required by the backend
-          'price': price,
-          'expirationDate': formattedDate,
+          'itemPhoto': photoToSubmit,
+          'householdId': householdId, // Backend expects int
+          'location': location,       // Backend expects 'in_house' for this flow
+          'price': price,             // Backend expects float
+          'expirationDate': formattedExpirationDate, // Backend expects date string or null
         }),
       );
 
       if (kDebugMode) {
-        print('Response status: ${response.statusCode}');
-        print('Response body: ${response.body}');
+        print('===== API RESPONSE (Add Item via Service /api/items/create) =====');
+        print('Status code: ${response.statusCode}');
+        print('Body: ${response.body}');
+        print('================================================================');
       }
 
-      if (response.statusCode == 201 || response.statusCode == 200) {
+      if (response.statusCode == 201) {
         return true;
       } else {
         if (kDebugMode) {
-          print('Failed to add item. Status: ${response.statusCode}, Error: ${response.body}');
-        }
-        return false;
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Exception when adding item: $e');
-      }
-      return false;
-    }
-  }
-
-  // Get all items from the database
-  Future<List<Item>> getItems() async {
-    try {
-      final token = await _getToken();
-      if (kDebugMode) {
-        print('Fetching items with token: $token');
-      }
-
-      if (token == null || token.isEmpty) {
-        if (kDebugMode) {
-          print('Error: No authentication token found');
-        }
-        return [];
-      }
-
-      // Use the correct endpoint - update this to match your backend API
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/items/list'), // Use /list endpoint instead of just /items
-        headers: {'Authorization': 'Bearer $token'},
-      );
-
-      if (kDebugMode) {
-        print('Response status: ${response.statusCode}');
-        print('Response body: ${response.body}');
-      }
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((item) => Item.fromJson(item)).toList();
-      } else {
-        if (kDebugMode) {
-          print('Failed to fetch items. Status: ${response.statusCode}, Error: ${response.body}');
-        }
-        return [];
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Exception when fetching items: $e');
-      }
-      return [];
-    }
-  }
-
-  // Update an existing item
-  Future<bool> updateItem(String itemId, String name, String? photoUrl) async {
-    try {
-      final token = await _getToken();
-      if (kDebugMode) {
-        print('Updating item $itemId: name=$name, photoUrl=$photoUrl');
-        print('Token: $token');
-      }
-
-      if (token == null || token.isEmpty) {
-        if (kDebugMode) {
-          print('Error: No authentication token found');
-        }
-        return false;
-      }
-
-      final response = await http.put(
-        Uri.parse('$baseUrl/api/items/$itemId'),
-        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-        body: jsonEncode({'name': name, 'photoUrl': photoUrl}),
-      );
-
-      if (kDebugMode) {
-        print('Response status: ${response.statusCode}');
-        print('Response body: ${response.body}');
-      }
-
-      return response.statusCode == 200;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Exception when updating item: $e');
-      }
-      return false;
-    }
-  }
-
-  // Delete an item
-  Future<bool> deleteItem(String itemId) async {
-    try {
-      final token = await _getToken();
-      if (kDebugMode) {
-        print('Deleting item $itemId');
-        print('Token: $token');
-      }
-
-      if (token == null || token.isEmpty) {
-        if (kDebugMode) {
-          print('Error: No authentication token found');
-        }
-        return false;
-      }
-
-      final response = await http.delete(
-        Uri.parse('$baseUrl/api/items/$itemId'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-
-      if (kDebugMode) {
-        print('Response status: ${response.statusCode}');
-        print('Response body: ${response.body}');
-      }
-
-      return response.statusCode == 200;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Exception when deleting item: $e');
-      }
-      return false;
-    }
-  }
-
-  // Get a household items
-  // Get a household items
-  Future<List<Item>> getHouseholdItems(String householdId) async {
-    try {
-      final token = await _getToken();
-      if (token == null || token.isEmpty) {
-        if (kDebugMode) {
-          print('Error: No authentication token found');
-        }
-        return [];
-      }
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/household-items?householdId=$householdId'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-
-      if (kDebugMode) {
-        print('Response status: ${response.statusCode}');
-        print('Response body: ${response.body}');
-      }
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> responseData = jsonDecode(response.body);
-        // Check if 'items' key exists and is a list
-        if (responseData.containsKey('items') && responseData['items'] is List) {
-          final List<dynamic> data = responseData['items'] as List<dynamic>;
-          return data.map((item) => Item.fromJson(item as Map<String, dynamic>)).toList();
-        } else {
-          if (kDebugMode) {
-            print('Failed to parse items: "items" key not found or not a list in response.');
+          try {
+            final responseBody = jsonDecode(response.body);
+            print('Failed to add item via service: ${responseBody['message']}');
+          } catch (e) {
+            print('Failed to add item via service, and response body is not valid JSON or has no message. Body: ${response.body}');
           }
-          return [];
         }
-      } else {
-        if (kDebugMode) {
-          print('Failed to fetch items. Status: ${response.statusCode}, Error: ${response.body}');
-        }
-        return [];
+        return false;
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Exception when fetching household items: $e');
+        print('Exception when adding item via service: $e');
       }
-      return [];
+      return false;
     }
   }
 
-  Future<List<Item>> getToBuyItems(String householdId) async {
-    try {
-      final token = await _getToken();
-      if (token == null || token.isEmpty) {
-        return [];
-      }
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/items/to-buy/$householdId'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((item) => Item.fromJson(item)).toList();
-      } else {
-        return [];
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Exception when fetching to buy items: $e');
-      }
-      return [];
+  // Placeholder for getItems if you have a global item list separate from household items
+  // This was in your provided code, but its usage isn't clear from the current context.
+  // If it's for the global search, that's handled directly in in_house_screen.dart.
+  Future<List<Item>> getItems() async {
+    // This method might not be needed if global search is done directly.
+    // If it's meant to fetch all items from the global 'items' table,
+    // ensure your backend has an endpoint like '/api/items/list' or similar.
+    if (kDebugMode) {
+      print("InHouseService.getItems() called - ensure backend endpoint exists and is correct if this is used.");
     }
+    return []; // Placeholder
   }
 }

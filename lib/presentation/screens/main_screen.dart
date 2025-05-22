@@ -292,7 +292,6 @@ class _MainScreenState extends State<MainScreen> {
       return const SizedBox.shrink();
   }
 }
-}
 
   void _showAddHouseholdDialog(BuildContext context) {
     final TextEditingController householdNameController = TextEditingController();
@@ -383,3 +382,4 @@ class _MainScreenState extends State<MainScreen> {
       },
     );
   }
+}

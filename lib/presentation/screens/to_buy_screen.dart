@@ -55,7 +55,6 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
                     color: Theme.of(context).textTheme.titleLarge?.color,
                   ),
                 ),
-                //IconButton(icon: const Icon(Icons.refresh), tooltip: 'Refresh', onPressed: _loadToBuyItems),
               ],
             ),
           ),

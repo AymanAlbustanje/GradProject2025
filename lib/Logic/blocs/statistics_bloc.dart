@@ -1,5 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:gradproject2025/data/DataSources/statistics_service.dart';
+import 'package:gradproject2025/api_constants.dart';
 
 // Events
 abstract class StatisticsEvent extends Equatable {
@@ -31,12 +33,18 @@ class StatisticsInitial extends StatisticsState {}
 class StatisticsLoading extends StatisticsState {}
 
 class StatisticsLoaded extends StatisticsState {
-  final Map<String, dynamic> statistics;
+  final List<Map<String, dynamic>> topPurchasedItems;
+  final List<Map<String, dynamic>> topExpensiveItems;
+  final String? householdIdForData; // Add this field
 
-  const StatisticsLoaded({required this.statistics});
+  const StatisticsLoaded({
+    required this.topPurchasedItems,
+    required this.topExpensiveItems,
+    this.householdIdForData, // Add to constructor
+  });
 
   @override
-  List<Object?> get props => [statistics];
+  List<Object?> get props => [topPurchasedItems, topExpensiveItems, householdIdForData]; // Add to props
 }
 
 class StatisticsError extends StatisticsState {
@@ -50,25 +58,21 @@ class StatisticsError extends StatisticsState {
 
 // Bloc
 class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
+  final statisticsService = StatisticsService(baseUrl: ApiConstants.baseUrl);
+
   StatisticsBloc() : super(StatisticsInitial()) {
     on<LoadStatistics>((event, emit) async {
       emit(StatisticsLoading());
       
       try {
-        // This is a placeholder for future implementation
-        // TODO: Implement actual statistics fetching logic
+        final topPurchasedItems = await statisticsService.getTopPurchasedItems(event.householdId);
+        final topExpensiveItems = await statisticsService.getTopExpensiveItems(event.householdId);
         
-        // Simulate loading with a delay
-        await Future.delayed(const Duration(seconds: 1));
-        
-        // Return placeholder statistics data
-        emit(const StatisticsLoaded(statistics: {
-          'totalItems': 0,
-          'totalValue': 0.0,
-          'itemsAboutToExpire': 0,
-          'mostExpensiveCategories': [],
-          'purchaseFrequency': {},
-        }));
+        emit(StatisticsLoaded(
+          topPurchasedItems: topPurchasedItems,
+          topExpensiveItems: topExpensiveItems,
+          householdIdForData: event.householdId, // Set the householdId here
+        ));
       } catch (e) {
         emit(StatisticsError(message: 'Failed to load statistics: ${e.toString()}'));
       }

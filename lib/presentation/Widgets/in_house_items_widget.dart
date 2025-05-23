@@ -6,7 +6,6 @@ import 'package:gradproject2025/Logic/blocs/current_household_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/household_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/in_house_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/to_buy_bloc.dart';
-import 'package:gradproject2025/data/Models/household_model.dart';
 import 'package:gradproject2025/data/Models/item_model.dart';
 import 'package:gradproject2025/data/DataSources/to_buy_service.dart';
 import 'package:gradproject2025/api_constants.dart';

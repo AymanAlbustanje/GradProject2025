@@ -135,7 +135,7 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
             side: BorderSide(color: isDarkMode ? Colors.grey[800]! : Colors.grey[300]!, width: 0.5),
           ),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 15.0),
             title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w500)),
             leading:
                 item.photoUrl != null && item.photoUrl!.isNotEmpty

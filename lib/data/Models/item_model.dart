@@ -1,14 +1,15 @@
 class Item {
-  final String? id; // Represents household_item_id for items within a household
+  final String? id; 
   final String name;
-  final String? photoUrl; // This should be the specific photo for the household_item if available, else global
-  final int? itemId;     // Original item_id from the global items table
+  final String? photoUrl;
+  final int? itemId;
   final String? location;
   final double? price;
   final DateTime? expirationDate;
   final int? purchaseCounter;
   final int? quantity;
   final String? notes;
+  final String? category;
 
   Item({
     this.id,
@@ -21,15 +22,24 @@ class Item {
     this.purchaseCounter,
     this.quantity,
     this.notes,
+    this.category,
   });
 
   factory Item.fromJson(Map<String, dynamic> json) {
     String? determinedPhotoUrl;
-    if (json['item_photo'] != null && json['item_photo'].toString().isNotEmpty) {
+    // Check for household-specific item photo first
+    if (json['item_photo_household'] != null && json['item_photo_household'].toString().isNotEmpty) {
+      determinedPhotoUrl = json['item_photo_household'].toString();
+    } 
+    // Then check for global item photo
+    else if (json['item_photo'] != null && json['item_photo'].toString().isNotEmpty) {
       determinedPhotoUrl = json['item_photo'].toString();
-    } else if (json['global_photo'] != null && json['global_photo'].toString().isNotEmpty) {
+    } 
+    // Fallback if 'global_photo' is used in some contexts (ensure consistency with backend)
+    else if (json['global_photo'] != null && json['global_photo'].toString().isNotEmpty) {
       determinedPhotoUrl = json['global_photo'].toString();
     }
+
 
     return Item(
       id: json['household_item_id']?.toString(),
@@ -42,8 +52,9 @@ class Item {
           ? DateTime.tryParse(json['expiration_date'].toString())
           : null,
       purchaseCounter: json['purchase_counter'] as int?,
-      quantity: json['quantity'] as int?, // Assuming backend might send this
-      notes: json['notes'] as String?,    // Assuming backend might send this
+      quantity: json['quantity'] as int?,
+      notes: json['notes'] as String?,
+      category: json['category'] as String?,
     );
   }
 
@@ -51,7 +62,7 @@ class Item {
     return {
       'household_item_id': id,
       'item_name': name,
-      'item_photo': photoUrl,
+      'item_photo': photoUrl, // This should ideally be item_photo_household if sending back specific instance
       'item_id': itemId,
       'location': location,
       'price': price,
@@ -59,6 +70,7 @@ class Item {
       'purchase_counter': purchaseCounter,
       'quantity': quantity,
       'notes': notes,
+      'category': category,
     };
   }
 }

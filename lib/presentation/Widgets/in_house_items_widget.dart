@@ -14,16 +14,15 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 class InHouseItemsWidget extends StatefulWidget {
   const InHouseItemsWidget({super.key});
 
   @override
-  // Ensure this returns the public state class name
   InHouseItemsWidgetState createState() => InHouseItemsWidgetState();
 }
 
-// Ensure the state class name is public (no leading underscore)
 class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
   String _selectedCategoryFilter = 'All';
 
@@ -47,7 +46,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
   ];
   final String _defaultItemPhotoUrl = 'https://i.pinimg.com/736x/82/be/d4/82bed479344270067e3d2171379949b3.jpg';
 
-
   void _logApiResponse(http.Response response, {String? context}) {
     if (kDebugMode) {
       print('===== API RESPONSE ${context != null ? "($context)" : ""} =====');
@@ -57,18 +55,51 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
     }
   }
 
-  // This method is called by InHouseScreen's FAB or ItemSearchWidget
-  void displayCreateAndAddItemForm(String itemNameFromSearch) {
+  // New method to handle barcode scanning with mobile_scanner
+  Future<String?> _scanBarcode(BuildContext context) async {
+    return await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: const Text('Scan Barcode'),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Colors.white,
+          ),
+          body: MobileScanner(
+            controller: MobileScannerController(
+              detectionSpeed: DetectionSpeed.normal,
+              facing: CameraFacing.back,
+              torchEnabled: false,
+            ),
+            onDetect: (capture) {
+              final List<Barcode> barcodes = capture.barcodes;
+              for (final barcode in barcodes) {
+                if (barcode.rawValue != null) {
+                  Navigator.of(context).pop(barcode.rawValue);
+                  break;
+                }
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void displayCreateAndAddItemForm(
+    String itemNameFromSearch, {
+    Function(List<Map<String, dynamic>> foundItems)? onBarcodeFoundExistingItems,
+  }) {
+    // Fixed the corrupted line below
     final TextEditingController itemNameController = TextEditingController(text: itemNameFromSearch);
     final TextEditingController priceController = TextEditingController();
     final TextEditingController photoUrlController = TextEditingController();
     final TextEditingController barcodeController = TextEditingController();
     final formKey = GlobalKey<FormState>();
     DateTime? selectedExpirationDate;
-    dynamic selectedHouseholdId; // This will be populated from CurrentHouseholdBloc
+    dynamic selectedHouseholdId;
     String? selectedCategoryDialog;
 
-    // Get the currently selected household ID
     final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
     if (currentHouseholdState is CurrentHouseholdSet) {
       selectedHouseholdId = currentHouseholdState.household.id;
@@ -85,9 +116,7 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
         final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[700];
 
         return StatefulBuilder(builder: (stfContext, stfSetState) {
-          // Use a BlocBuilder for HouseholdBloc to react to loading states or if no households exist.
           return BlocBuilder<HouseholdBloc, HouseholdState>(
-            // Ensure HouseholdBloc is loaded to check for existing households
             bloc: BlocProvider.of<HouseholdBloc>(context)..add(LoadHouseholds()),
             builder: (blocContext, householdState) {
               bool noHouseholdsExistAtAll = householdState is HouseholdLoaded && householdState.myHouseholds.isEmpty;
@@ -133,7 +162,7 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                           },
                         ),
                         const SizedBox(height: 16),
-                         DropdownButtonFormField<String>(
+                        DropdownButtonFormField<String>(
                           decoration: InputDecoration(
                             labelText: 'Category',
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
@@ -158,11 +187,10 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                           },
                           validator: (v) => v == null ? 'Please select a category' : null,
                         ),
-
-                        // Display message if no household is selected or if no households exist at all.
                         if (selectedHouseholdId == null)
                           Container(
                             padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(top:16),
                             decoration: BoxDecoration(
                               color: errorColor.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
@@ -190,8 +218,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                               child: CircularProgressIndicator(),
                             ),
                           ),
-                        // Household Dropdown is removed as per requirement.
-
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: priceController,
@@ -248,6 +274,94 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                             labelStyle: TextStyle(color: subtitleColor),
                             filled: true,
                             fillColor: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
+                            suffixIcon: IconButton(
+                              icon: Icon(Icons.camera_alt_outlined, color: primaryColor.withOpacity(0.8)),
+                              tooltip: 'Scan Barcode',
+                              onPressed: () async {
+                                try {
+                                  final barcodeScanRes = await _scanBarcode(stfContext);
+                                  if (!mounted) return;
+                                  
+                                  if (barcodeScanRes == null) {
+                                    // User cancelled scanning
+                                    return;
+                                  }
+
+                                  if (barcodeScanRes.isNotEmpty) {
+                                    stfSetState(() {
+                                      barcodeController.text = barcodeScanRes;
+                                    });
+
+                                    ScaffoldMessenger.of(stfContext).showSnackBar(
+                                      const SnackBar(content: Text('Searching item by barcode...')),
+                                    );
+
+                                    try {
+                                      final prefs = await SharedPreferences.getInstance();
+                                      final token = prefs.getString('token');
+                                      if (token == null) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(stfContext).showSnackBar(
+                                            const SnackBar(content: Text('Authentication token not found.')),
+                                          );
+                                        }
+                                        return;
+                                      }
+                                      
+                                      final response = await http.post(
+                                        Uri.parse('${ApiConstants.baseUrl}/api/items/search-barcode'),
+                                        headers: {
+                                          'Authorization': 'Bearer $token',
+                                          'Content-Type': 'application/json'
+                                        },
+                                        body: jsonEncode({'barcode': barcodeScanRes}),
+                                      );
+                                      _logApiResponse(response, context: 'Search by Barcode (POST)');
+
+                                      if (!mounted) return;
+
+                                      if (response.statusCode == 200) {
+                                        final Map<String, dynamic> decodedBody = jsonDecode(response.body);
+                                        final List<dynamic> responseData = decodedBody['items'] as List<dynamic>? ?? [];
+
+                                        if (responseData.isNotEmpty) {
+                                          Navigator.pop(dialogContext); 
+                                          onBarcodeFoundExistingItems?.call(
+                                            responseData.cast<Map<String, dynamic>>()
+                                          );
+                                        } else {
+                                          ScaffoldMessenger.of(stfContext).showSnackBar(
+                                            const SnackBar(content: Text('No item found for this barcode. You can add it manually.')),
+                                          );
+                                        }
+                                      } else { // Handles 404 and other errors from backend
+                                        final errorData = jsonDecode(response.body);
+                                        ScaffoldMessenger.of(stfContext).showSnackBar(
+                                          SnackBar(content: Text('Failed to search item: ${errorData['message'] ?? response.reasonPhrase ?? 'Unknown error'}')),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (!mounted) return;
+                                      ScaffoldMessenger.of(stfContext).showSnackBar(
+                                        SnackBar(content: Text('Error searching item: ${e.toString()}')),
+                                      );
+                                    }
+                                  } else {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(stfContext).showSnackBar(
+                                        const SnackBar(content: Text('Barcode scan was empty.')),
+                                      );
+                                    }
+                                  }
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(stfContext).showSnackBar(
+                                      SnackBar(content: Text('Failed to scan barcode: ${e.toString()}')),
+                                    );
+                                  }
+                                }
+                              },
+                            ),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -258,10 +372,10 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                               initialDate: selectedExpirationDate ?? DateTime.now(),
                               firstDate: DateTime(2000),
                               lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
-                               builder: (context, child) {
+                               builder: (pickerContext, child) {
                                 return Theme(
-                                  data: Theme.of(context).copyWith(
-                                    colorScheme: Theme.of(context).colorScheme.copyWith(
+                                  data: Theme.of(pickerContext).copyWith(
+                                    colorScheme: Theme.of(pickerContext).colorScheme.copyWith(
                                           primary: primaryColor,
                                           onPrimary: Colors.white,
                                           surface: backgroundColor,
@@ -314,7 +428,7 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                   ElevatedButton(
                     onPressed: selectedHouseholdId != null &&
                                selectedCategoryDialog != null &&
-                               !(householdState is HouseholdLoading)
+                               householdState is! HouseholdLoading
                         ? () async {
                             if (formKey.currentState!.validate()) {
                               final String itemName = itemNameController.text.trim();
@@ -355,13 +469,13 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                                   }
                                 } else {
                                    final errorData = jsonDecode(response.body);
-                                  ScaffoldMessenger.of(context).showSnackBar(
+                                  ScaffoldMessenger.of(stfContext).showSnackBar(
                                     SnackBar(content: Text('Failed to create item: ${errorData['message'] ?? response.reasonPhrase}')),
                                   );
                                 }
                               } catch (e) {
                                  if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                ScaffoldMessenger.of(stfContext).showSnackBar(
                                   SnackBar(content: Text('Error: ${e.toString()}')),
                                 );
                               }
@@ -387,7 +501,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
       },
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -417,7 +530,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                 final filteredItems = _selectedCategoryFilter == 'All'
                     ? state.items
                     : state.items.where((item) {
-                        // Ensure item.category is not null before comparing
                         return item.category != null && item.category == _selectedCategoryFilter;
                       }).toList();
 
@@ -427,7 +539,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
               } else if (state is ItemError) {
                 return Center(child: Text(state.error, style: const TextStyle(color: Colors.red, fontSize: 18)));
               }
-              // Default empty state if none of the above conditions are met
               return _buildEmptyState();
             },
           ),
@@ -439,7 +550,7 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
   Widget _buildCategoryFilter(bool isDarkMode) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
-      height: 50, // Constrain height for horizontal ListView
+      height: 50,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: _filterCategories.length,
@@ -558,11 +669,8 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
   }
 
   void _moveToBuy(BuildContext context, Item item) async {
-    // Ensure item.id (which is household_item_id) is not null
     if (item.id == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Cannot move item - missing item ID (household_item_id).')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot move item - missing item ID.')));
       return;
     }
 
@@ -576,29 +684,21 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
 
     try {
       final toBuyService = ToBuyService(baseUrl: ApiConstants.baseUrl);
-
-      // Show an immediate feedback message
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Moving item to shopping list...')));
-
-      // Call the service method to move the item
-      // The item.id here refers to the household_item_id
+      
       final success = await toBuyService.moveItemToBuy(householdItemId: item.id!, householdId: householdId);
 
-      if (!context.mounted) return; // Check if the widget is still in the tree
+      if (!context.mounted) return;
 
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${item.name} moved to shopping list.')));
-
-        // Refresh both InHouse and ToBuy lists
         context.read<InHouseBloc>().add(LoadHouseholdItems(householdId: householdId.toString()));
         context.read<ToBuyBloc>().add(LoadToBuyItems(householdId: householdId.toString()));
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Failed to move item to shopping list.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to move item to shopping list.')));
       }
     } catch (e) {
-      if (!context.mounted) return; // Check if the widget is still in the tree
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error moving item: ${e.toString()}')));
     }
   }

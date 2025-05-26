@@ -10,7 +10,7 @@ import 'package:gradproject2025/Logic/blocs/current_household_bloc.dart';
 import 'package:gradproject2025/api_constants.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-// For date formatting
+import 'package:intl/intl.dart';
 
 class ItemSearchWidget extends StatefulWidget {
   const ItemSearchWidget({super.key});
@@ -25,6 +25,8 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
   bool _isLoading = false;
   Timer? _debounce;
   String? _currentHouseholdId;
+  final String _defaultItemPhotoUrl = 'https://i.pinimg.com/736x/82/be/d4/82bed479344270067e3d2171379949b3.jpg';
+
 
   @override
   void initState() {
@@ -53,6 +55,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
         if (mounted) {
           setState(() {
             _searchResults = [];
+            _isLoading = false;
           });
         }
       }
@@ -75,8 +78,8 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}/api/items/search-name'),
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json'
         },
         body: jsonEncode({'name': query}),
       );
@@ -86,13 +89,13 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
-          _searchResults = data['items'] ?? [];
+          _searchResults = data['items'];
           _isLoading = false;
         });
       } else {
         setState(() {
-          _isLoading = false;
           _searchResults = [];
+          _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to search items: ${response.reasonPhrase}')),
@@ -126,8 +129,8 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}/api/items/search-barcode'),
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json'
         },
         body: jsonEncode({'barcode': barcode}),
       );
@@ -137,7 +140,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
-          _searchResults = data['items'] ?? [];
+          _searchResults = data['items'];
           _isLoading = false;
         });
       } else {
@@ -184,7 +187,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
     final TextEditingController priceController = TextEditingController();
     final formKey = GlobalKey<FormState>();
     DateTime? selectedExpirationDate;
-    // Always set to 'in_house' without offering a choice
     const String selectedLocation = 'in_house';
 
     final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
@@ -197,7 +199,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
       return;
     }
     if (_currentHouseholdId == null) {
-       ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Household ID is missing. Cannot add item.')),
       );
       return;
@@ -213,19 +215,18 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
         final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[700];
 
         return StatefulBuilder(
-          builder: (stfContext, stfSetState) {
+          builder: (context, stfSetState) {
             return AlertDialog(
               backgroundColor: backgroundColor,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
               title: Row(
                 children: [
-                  Icon(Icons.add_shopping_cart_outlined, color: primaryColor, size: 24),
+                  Icon(Icons.add_shopping_cart, color: primaryColor, size: 24),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Add ${item['item_name']} to Household',
+                      'Add to Household',
                       style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -237,7 +238,132 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Add your form fields here
+                      // Display Item Name, Category, Photo
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: (item['item_photo'] != null && item['item_photo'].toString().isNotEmpty)
+                              ? Image.network(
+                                  item['item_photo'],
+                                  width: 60,
+                                  height: 60,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) => 
+                                    Container(
+                                      width: 60,
+                                      height: 60,
+                                      color: Colors.grey[300],
+                                      child: const Icon(Icons.image_not_supported, color: Colors.grey),
+                                    ),
+                                )
+                              : Container(
+                                  width: 60,
+                                  height: 60,
+                                  color: Colors.grey[300],
+                                  child: const Icon(Icons.image_not_supported, color: Colors.grey),
+                                ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item['item_name'] ?? 'Unknown Item',
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  item['category'] ?? 'Uncategorized',
+                                  style: TextStyle(
+                                    color: subtitleColor,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Price field
+                      Text(
+                        'Item Price',
+                        style: TextStyle(color: textColor, fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: priceController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(
+                          hintText: 'Enter price',
+                          prefixIcon: Icon(Icons.attach_money, color: primaryColor),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a price';
+                          }
+                          if (double.tryParse(value) == null) {
+                            return 'Please enter a valid number';
+                          }
+                          if (double.parse(value) < 0) {
+                            return 'Price must be a positive number';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Expiration date field
+                      Text(
+                        'Expiration Date (Optional)',
+                        style: TextStyle(color: textColor, fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: () async {
+                          final DateTime? picked = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 1825)), // 5 years
+                          );
+                          if (picked != null) {
+                            stfSetState(() {
+                              selectedExpirationDate = picked;
+                            });
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                selectedExpirationDate == null 
+                                    ? 'Select Date' 
+                                    : DateFormat('yyyy-MM-dd').format(selectedExpirationDate!),
+                                style: TextStyle(color: textColor),
+                              ),
+                              Icon(Icons.calendar_today, color: primaryColor),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -245,46 +371,410 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
-                  style: TextButton.styleFrom(foregroundColor: subtitleColor),
-                  child: const Text('CANCEL'),
+                  child: Text('CANCEL', style: TextStyle(color: primaryColor)),
                 ),
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
                   onPressed: () async {
-                    // Add your submit action here
+                    if (formKey.currentState!.validate()) {
+                      Navigator.pop(dialogContext);
+                      try {
+                        final prefs = await SharedPreferences.getInstance();
+                        final token = prefs.getString('token');
+                        if (token == null) {
+                          throw Exception('Token not found');
+                        }
+                        final response = await http.post(
+                          Uri.parse('${ApiConstants.baseUrl}/api/household-items/add-existing'),
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer $token',
+                          },
+                          body: jsonEncode({
+                            'householdId': int.parse(_currentHouseholdId!),
+                            'itemId': item['item_id'],
+                            'location': selectedLocation,
+                            'price': double.tryParse(priceController.text) ?? 0.0,
+                            'expirationDate': selectedExpirationDate?.toIso8601String().split('T')[0],
+                          }),
+                        );
+                        if (response.statusCode == 201) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Item added to household successfully')),
+                          );
+                        } else {
+                          _logApiResponse(response, contextMsg: 'Add item to household error');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to add item: ${response.reasonPhrase}')),
+                          );
+                        }
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error adding item: ${e.toString()}')),
+                        );
+                      }
+                    }
                   },
                   child: const Text('ADD ITEM'),
                 ),
               ],
             );
-          },
+          }
         );
       },
     );
   }
 
-  // New method to handle the barcode scanning
+  void _showCreateItemForm(String itemName) {
+  final TextEditingController nameController = TextEditingController(text: itemName);
+  final TextEditingController categoryController = TextEditingController();
+  final TextEditingController barcodeController = TextEditingController();
+  final TextEditingController priceController = TextEditingController();
+  final TextEditingController photoUrlController = TextEditingController();
+  final formKey = GlobalKey<FormState>();
+  DateTime? selectedExpirationDate;
+  String? selectedCategoryDialog;
+
+  final List<String> dialogCategories = [
+    'Fruits & Vegetables',
+    'Dairy & Eggs',
+    'Meat & Seafood',
+    'Canned & Jarred',
+    'Dry Goods & Pasta',
+    'Others',
+  ];
+
+  showDialog(
+    context: context,
+    builder: (dialogContext) {
+      final isDarkMode = Theme.of(dialogContext).brightness == Brightness.dark;
+      final primaryColor = Theme.of(dialogContext).colorScheme.primary;
+      final backgroundColor = isDarkMode ? const Color(0xFF1F1F1F) : Colors.white;
+      final textColor = isDarkMode ? Colors.white : Colors.black87;
+      final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[700];
+
+      return StatefulBuilder( 
+        builder: (context, stfSetState) {
+          return AlertDialog(
+            backgroundColor: backgroundColor,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
+            title: Row(
+              children: [
+                Icon(Icons.add_box_outlined, color: primaryColor, size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Create New Item',
+                    style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Item Name
+                    TextFormField(
+                      controller: nameController,
+                      style: TextStyle(color: textColor),
+                      decoration: InputDecoration(
+                        labelText: 'Item Name',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
+                        prefixIcon: Icon(Icons.label_outline, color: primaryColor.withOpacity(0.8)),
+                        labelStyle: TextStyle(color: subtitleColor),
+                        filled: true,
+                        fillColor: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Item name is required';
+                        if (v.trim().length < 2) return 'Name must be at least 2 characters';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Category
+                    DropdownButtonFormField<String>(
+                      decoration: InputDecoration(
+                        labelText: 'Category',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
+                        prefixIcon: Icon(Icons.category_outlined, color: primaryColor.withOpacity(0.8)),
+                        labelStyle: TextStyle(color: subtitleColor),
+                        filled: true,
+                        fillColor: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
+                      ),
+                      dropdownColor: backgroundColor,
+                      style: TextStyle(color: textColor),
+                      value: selectedCategoryDialog,
+                      items: dialogCategories.map((String category) {
+                        return DropdownMenuItem<String>(
+                          value: category,
+                          child: Text(category),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        stfSetState(() {
+                          selectedCategoryDialog = newValue;
+                          categoryController.text = newValue ?? '';
+                        });
+                      },
+                      validator: (v) => v == null ? 'Please select a category' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Price
+                    TextFormField(
+                      controller: priceController,
+                      style: TextStyle(color: textColor),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: 'Price',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
+                        prefixIcon: Icon(Icons.attach_money_outlined, color: primaryColor.withOpacity(0.8)),
+                        labelStyle: TextStyle(color: subtitleColor),
+                        filled: true,
+                        fillColor: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Price is required';
+                        if (double.tryParse(v.trim()) == null) return 'Invalid price';
+                        if (double.parse(v.trim()) < 0) return 'Price cannot be negative';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Photo URL
+                    TextFormField(
+                      controller: photoUrlController,
+                      style: TextStyle(color: textColor),
+                      keyboardType: TextInputType.url,
+                      decoration: InputDecoration(
+                        labelText: 'Item Photo URL (Optional)',
+                        hintText: 'e.g., https://example.com/image.jpg',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
+                        prefixIcon: Icon(Icons.link_outlined, color: primaryColor.withOpacity(0.8)),
+                        labelStyle: TextStyle(color: subtitleColor),
+                        filled: true,
+                        fillColor: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
+                      ),
+                      validator: (value) {
+                        if (value != null && value.trim().isNotEmpty) {
+                          final uri = Uri.tryParse(value.trim());
+                          if (uri == null || !uri.isAbsolute || !(uri.scheme == 'http' || uri.scheme == 'https')) {
+                            return 'Please enter a valid HTTP/HTTPS URL';
+                          }
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Barcode
+                    TextFormField(
+                      controller: barcodeController,
+                      style: TextStyle(color: textColor),
+                      keyboardType: TextInputType.text,
+                      decoration: InputDecoration(
+                        labelText: 'Barcode (Optional)',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
+                        prefixIcon: Icon(Icons.qr_code_scanner_outlined, color: primaryColor.withOpacity(0.8)),
+                        labelStyle: TextStyle(color: subtitleColor),
+                        filled: true,
+                        fillColor: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Expiration Date
+                    InkWell(
+                      onTap: () async {
+                        final DateTime? picked = await showDatePicker(
+                          context: dialogContext,
+                          initialDate: selectedExpirationDate ?? DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
+                          builder: (pickerContext, child) {
+                            return Theme(
+                              data: Theme.of(pickerContext).copyWith(
+                                colorScheme: Theme.of(pickerContext).colorScheme.copyWith(
+                                  primary: primaryColor,
+                                  onPrimary: Colors.white,
+                                  surface: backgroundColor,
+                                  onSurface: textColor,
+                                ),
+                                dialogBackgroundColor: backgroundColor,
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (picked != null) {
+                          stfSetState(() {
+                            selectedExpirationDate = picked;
+                          });
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(12.0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 16.0),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: subtitleColor ?? Colors.grey),
+                          borderRadius: BorderRadius.circular(12.0),
+                          color: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              selectedExpirationDate == null
+                                  ? 'Select Expiration Date (Optional)'
+                                  : 'Expires: ${DateFormat.yMd().format(selectedExpirationDate!)}',
+                              style: TextStyle(color: textColor),
+                            ),
+                            Icon(Icons.calendar_today_outlined, color: primaryColor.withOpacity(0.8)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                style: TextButton.styleFrom(foregroundColor: subtitleColor),
+                child: const Text('CANCEL'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                ),
+                onPressed: () async {
+                  if (formKey.currentState!.validate()) {
+                    Navigator.pop(dialogContext);
+                    await _createNewItem(
+                      name: nameController.text.trim(),
+                      category: selectedCategoryDialog ?? '',
+                      barcode: barcodeController.text.trim().isNotEmpty ? barcodeController.text.trim() : null,
+                      price: double.tryParse(priceController.text) ?? 0.0,
+                      expirationDate: selectedExpirationDate,
+                      itemPhoto: photoUrlController.text.trim().isNotEmpty ? photoUrlController.text.trim() : null,
+                    );
+                  }
+                },
+                child: const Text('CREATE & ADD'),
+              ),
+            ],
+          );
+        }
+      );
+    },
+  );
+}
+
+  Future<void> _createNewItem({
+    required String name,
+    required String category,
+    String? barcode,
+    required double price,
+    DateTime? expirationDate,
+    String? itemPhoto,
+  }) async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      if (token == null) {
+        throw Exception('Token not found');
+      }
+
+      final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
+      if (currentHouseholdState is! CurrentHouseholdSet) {
+        throw Exception('No household selected');
+      }
+      if (currentHouseholdState.household.id == null) {
+        throw Exception('Household ID is missing');
+      }
+      
+      final String photoToSubmit = (itemPhoto != null && itemPhoto.isNotEmpty) ? itemPhoto : _defaultItemPhotoUrl;
+
+
+      final response = await http.post(
+        Uri.parse('${ApiConstants.baseUrl}/api/items/create'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'itemName': name,
+          'category': category,
+          'barcode': barcode,
+          'householdId': currentHouseholdState.household.id, 
+          'location': 'in_house', 
+          'price': price,
+          'expirationDate': expirationDate?.toIso8601String().split('T')[0],
+          'itemPhoto': photoToSubmit,
+        }),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 201) {
+        await _searchItems(name); 
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Item created and added successfully')),
+        );
+      } else {
+        _logApiResponse(response, contextMsg: 'Create item error');
+        final responseBody = jsonDecode(response.body);
+        final errorMessage = responseBody['message'] ?? 'Failed to create item: ${response.reasonPhrase}';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage)),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error creating item: ${e.toString()}')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   Future<void> _startBarcodeScanning() async {
     final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => Scaffold(
           appBar: AppBar(
             title: const Text('Scan Barcode'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            foregroundColor: Colors.white,
           ),
           body: MobileScanner(
-            controller: MobileScannerController(
-              detectionSpeed: DetectionSpeed.normal,
-              facing: CameraFacing.back,
-              torchEnabled: false,
-            ),
             onDetect: (capture) {
               final List<Barcode> barcodes = capture.barcodes;
-              for (final barcode in barcodes) {
-                if (barcode.rawValue != null) {
-                  Navigator.of(context).pop(barcode.rawValue);
-                  break;
-                }
+              if (barcodes.isNotEmpty && barcodes[0].rawValue != null) {
+                Navigator.pop(context, barcodes[0].rawValue);
               }
             },
           ),
@@ -294,7 +784,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
 
     if (result != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Searching by barcode...')),
+        SnackBar(content: Text('Barcode detected: $result')),
       );
       await _searchByBarcode(result);
     }
@@ -304,159 +794,287 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = Theme.of(context).colorScheme.primary;
-    final searchBackgroundColor = isDarkMode ? Colors.grey[800] : Colors.grey[200];
-    final textColor = isDarkMode ? Colors.white70 : Colors.black87;
+    final searchBackgroundColor = isDarkMode ? const Color(0xFF333333) : const Color(0xFFF1F3F5);
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
+    final cardColor = isDarkMode ? const Color(0xFF262626) : Colors.white;
 
     return BlocListener<CurrentHouseholdBloc, CurrentHouseholdState>(
       listener: (context, state) {
         if (state is CurrentHouseholdSet) {
-          if (mounted) {
-            setState(() {
-              _currentHouseholdId = state.household.id?.toString();
-            });
-          }
-        } else if (state is CurrentHouseholdInitial) { 
-           if (mounted) {
-            setState(() {
-              _currentHouseholdId = null;
-            });
-          }
+          _currentHouseholdId = state.household.id?.toString();
         }
       },
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
+      child: Padding( // Added Padding around the whole widget for consistent spacing
+        padding: const EdgeInsets.symmetric(vertical: 8.0), // Adjust vertical padding as needed
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Row containing search bar and barcode button
-            Row(
-              children: [
-                // Search bar - expanded to take available width
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    style: TextStyle(color: textColor),
-                    decoration: InputDecoration(
-                      hintText: 'Search for items to add...',
-                      hintStyle: TextStyle(color: textColor.withOpacity(0.7)),
-                      prefixIcon: Icon(Icons.search, color: primaryColor),
-                      suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: Icon(Icons.clear, color: primaryColor.withOpacity(0.7)),
-                            onPressed: () {
-                              _searchController.clear();
-                              if (mounted) {
-                                setState(() {
-                                  _searchResults = [];
-                                });
-                              }
-                            },
-                          )
-                        : null,
-                      filled: true,
-                      fillColor: searchBackgroundColor,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 14.0, horizontal: 16.0),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25.0),
-                        borderSide: BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25.0),
-                        borderSide: BorderSide(color: Colors.grey[700]!.withOpacity(isDarkMode ? 0.5 : 0.2), width: 0.5),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25.0),
-                        borderSide: BorderSide(color: primaryColor, width: 1),
+            // Enhanced search bar
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16.0), // Horizontal margin for search bar
+              height: 48,
+              decoration: BoxDecoration(
+                color: searchBackgroundColor,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16.0, right: 8.0),
+                    child: Icon(Icons.search, color: primaryColor, size: 20),
+                  ),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      style: TextStyle(color: textColor, fontSize: 15),
+                      decoration: InputDecoration(
+                        hintText: 'Search for items...',
+                        hintStyle: TextStyle(color: textColor.withOpacity(0.6), fontSize: 15),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                     ),
                   ),
-                ),
-                
-                // Separate circular barcode button
-                Container(
-                  margin: const EdgeInsets.only(left: 8.0),
-                  child: Material(
-                    color: primaryColor,
-                    borderRadius: BorderRadius.circular(30),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(30),
-                      onTap: _startBarcodeScanning,
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.qr_code_scanner,
-                          color: Colors.white,
-                          size: 24,
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    height: double.infinity,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: const BorderRadius.horizontal(right: Radius.circular(24)),
+                        onTap: _startBarcodeScanning,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Icon(
+                            Icons.qr_code_scanner,
+                            color: primaryColor,
+                            size: 22,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             
-            // Rest of the content (loading indicator, search results, etc.) remains the same
+            // Conditional content: Loading, No Results, or Results
             if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: CircularProgressIndicator(),
-              ),
-            if (_searchResults.isNotEmpty && !_isLoading)
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.25, 
+              Padding(
+                padding: const EdgeInsets.only(top: 24.0, bottom: 16.0),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Searching...',
+                      style: TextStyle(
+                        color: textColor.withOpacity(0.7),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: _searchResults.length,
-                  itemBuilder: (context, index) {
-                    final item = _searchResults[index];
-                    return Card(
-                      elevation: 1,
-                      margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      child: ListTile(
-                        leading: item['item_photo'] != null && (item['item_photo'] as String).isNotEmpty
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(6.0),
-                                child: Image.network(
-                                  item['item_photo'],
-                                  width: 40,
-                                  height: 40,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Icon(Icons.fastfood_outlined, color: primaryColor, size: 30),
-                                ),
-                              )
-                            : Icon(Icons.fastfood_outlined, color: primaryColor, size: 30),
-                        title: Text(item['item_name'] ?? 'Unknown Item', style: const TextStyle(fontWeight: FontWeight.w500)),
-                        subtitle: Text(item['category'] ?? 'No category', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                        trailing: IconButton(
-                          icon: Icon(Icons.add_circle_outline, color: primaryColor, size: 28),
-                          tooltip: 'Add to household',
-                          onPressed: () {
-                            if (_currentHouseholdId != null) {
-                              _showAddToHouseholdForm(item);
-                            } else {
-                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Please select a household first from the Household screen.')),
-                              );
-                            }
-                          },
+              )
+            else if (_searchController.text.isNotEmpty && _searchResults.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.search_off_rounded,
+                      size: 56,
+                      color: primaryColor.withOpacity(0.5),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No items found',
+                      style: TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'We couldn\'t find any items matching "${_searchController.text}"',
+                      style: TextStyle(
+                        color: textColor.withOpacity(0.7),
+                        fontSize: 14,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    Card(
+                      elevation: 2,
+                      color: cardColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(
+                          color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+                          width: 1,
                         ),
                       ),
-                    );
-                  },
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Want to add this item to your inventory?',
+                              style: TextStyle(
+                                color: textColor,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 16,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.add_circle_outline),
+                              label: const Text('Create New Item'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryColor,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                              ),
+                              onPressed: () {
+                                _showCreateItemForm(_searchController.text);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            if (_searchController.text.isNotEmpty && _searchResults.isEmpty && !_isLoading)
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'No items found matching "${_searchController.text}".',
-                  style: TextStyle(color: textColor.withOpacity(0.8)),
-                  textAlign: TextAlign.center,
+              )
+            else if (_searchResults.isNotEmpty) // No need for !_isLoading here if it's an else-if chain
+              Padding( // Added padding around the results list
+                padding: const EdgeInsets.only(top: 8.0),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    // Adjust max height as needed, e.g., 40% of screen height
+                    maxHeight: MediaQuery.of(context).size.height * 0.4, 
+                  ),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0), // Horizontal padding for list items
+                    shrinkWrap: true,
+                    physics: const BouncingScrollPhysics(), // Or ClampingScrollPhysics
+                    itemCount: _searchResults.length,
+                    itemBuilder: (context, index) {
+                      final item = _searchResults[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        elevation: 1,
+                        color: cardColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+                            width: 1,
+                          ),
+                        ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                          leading: Hero(
+                            tag: 'item_search_${item['item_id'] ?? item['id'] ?? index}', // Unique tag for search
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: item['item_photo'] != null && item['item_photo'].toString().isNotEmpty
+                                ? Image.network(
+                                    item['item_photo'],
+                                    width: 56,
+                                    height: 56,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) => 
+                                      Container(
+                                        width: 56,
+                                        height: 56,
+                                        color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
+                                        child: Icon(Icons.image_not_supported, color: isDarkMode ? Colors.grey[600] : Colors.grey[400], size: 24),
+                                      ),
+                                  )
+                                : Container(
+                                    width: 56,
+                                    height: 56,
+                                    color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
+                                    child: Icon(Icons.image_not_supported, color: isDarkMode ? Colors.grey[600] : Colors.grey[400], size: 24),
+                                  ),
+                            ),
+                          ),
+                          title: Text(
+                            item['item_name'] ?? 'Unknown Item',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: textColor,
+                              fontSize: 16,
+                            ),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isDarkMode ? Colors.grey[800] : Colors.grey[100],
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  item['category'] ?? 'Uncategorized',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          trailing: Material(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(20),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(20),
+                              onTap: () => showAddToHouseholdFormPublic(item),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Icon(
+                                  Icons.add_circle_outline,
+                                  color: primaryColor,
+                                  size: 24,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
           ],

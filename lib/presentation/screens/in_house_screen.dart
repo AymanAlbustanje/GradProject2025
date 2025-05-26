@@ -67,7 +67,7 @@ class _InHouseScreenState extends State<InHouseScreen> {
       child: Scaffold(
         body: Column(
           children: [
-            ItemSearchWidget(key: _itemSearchWidgetKey),
+            ItemSearchWidget(key: _itemSearchWidgetKey), 
             Expanded(
               child: InHouseItemsWidget(key: _inHouseItemsKey),
             ),

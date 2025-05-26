@@ -68,7 +68,7 @@ class ToBuyService {
       final int householdIdInt = householdId is String ? int.parse(householdId) : householdId;
 
       if (kDebugMode) {
-        print('Moving item ID: $itemIdInt to household ID: $householdIdInt');
+        print('Moving item ID: $itemIdInt to shopping list, household ID: $householdIdInt');
       }
 
       final response = await http.patch(
@@ -86,9 +86,9 @@ class ToBuyService {
       return response.statusCode == 200;
     } catch (e) {
       if (kDebugMode) {
-        print('Error moving item to To Buy: $e');
+        print('Error moving item to shopping list: $e');
       }
-      throw Exception('Failed to move item to To Buy: $e');
+      throw Exception('Failed to move item to shopping list: $e');
     }
   }
 
@@ -106,12 +106,14 @@ class ToBuyService {
         return false;
       }
 
+      // Prepare request body
       final Map<String, dynamic> requestBody = {
         'householdItemId': householdItemId,
         'householdId': householdId,
         'price': price,
       };
 
+      // Add expiration date if provided
       if (expirationDate != null) {
         requestBody['expirationDate'] = expirationDate.toIso8601String().split('T')[0];
       }
@@ -126,7 +128,6 @@ class ToBuyService {
         print('===== API RESPONSE (Move Item to House) =====');
         print('Status code: ${response.statusCode}');
         print('Body: ${response.body}');
-        print('============================');
       }
 
       return response.statusCode == 200;
@@ -135,4 +136,8 @@ class ToBuyService {
       return false;
     }
   }
+
+  // For future implementation:
+  // 1. deleteItem method to call the delete API
+  // 2. updateItem method to call the update API
 }

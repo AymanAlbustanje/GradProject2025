@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:gradproject2025/data/Models/item_model.dart';
-// Ensure this is present
 
 class InHouseService {
   final String baseUrl;
@@ -33,7 +32,6 @@ class InHouseService {
         print('===== GET IN-HOUSE ITEMS RESPONSE (Household ID: $householdId) =====');
         print('Status code: ${response.statusCode}');
         print('Body: ${response.body}');
-        print('================================================================');
       }
 
       if (response.statusCode == 200) {
@@ -56,35 +54,33 @@ class InHouseService {
   }
 
   // Add a new item (creates a global item and then a household item)
-  // Corresponds to /api/items/create endpoint
   Future<bool> addItem({
-    required String itemName, // Only keep the named parameter version
+    required String itemName,
     String? itemPhoto,
     required int householdId,
     required double price,
     DateTime? expirationDate,
+    required String category,
+    String? barcode,
     String location = 'in_house',
   }) async {
     try {
       final token = await _getToken();
-      if (kDebugMode) {
-        print('Attempting to add item: $itemName, Photo: $itemPhoto, Price: $price, Expiry: $expirationDate, Location: $location, HouseholdID: $householdId');
-      }
-
       if (token == null || token.isEmpty) {
         if (kDebugMode) print('Authentication token is missing for addItem.');
         return false;
       }
 
+      // Format expiration date if provided
       String? formattedExpirationDate;
       if (expirationDate != null) {
         formattedExpirationDate = expirationDate.toIso8601String().split('T')[0]; // YYYY-MM-DD
       }
 
-      // Use provided photo, or default if null/empty, or let backend handle default if itemPhoto is truly optional there
+      // Use provided photo or default
       final String photoToSubmit = (itemPhoto != null && itemPhoto.trim().isNotEmpty)
           ? itemPhoto.trim()
-          : _defaultItemPhotoUrl; // Backend /api/items/create expects itemPhoto
+          : _defaultItemPhotoUrl;
 
       final response = await http.post(
         Uri.parse('$baseUrl/api/items/create'),
@@ -95,51 +91,36 @@ class InHouseService {
         body: jsonEncode({
           'itemName': itemName,
           'itemPhoto': photoToSubmit,
-          'householdId': householdId, // Backend expects int
-          'location': location,       // Backend expects 'in_house' for this flow
-          'price': price,             // Backend expects float
-          'expirationDate': formattedExpirationDate, // Backend expects date string or null
+          'householdId': householdId,
+          'location': location,
+          'price': price,
+          'expirationDate': formattedExpirationDate,
+          'barcode': barcode,
+          'category': category,
         }),
       );
 
       if (kDebugMode) {
-        print('===== API RESPONSE (Add Item via Service /api/items/create) =====');
+        print('===== API RESPONSE (Add Item) =====');
         print('Status code: ${response.statusCode}');
         print('Body: ${response.body}');
-        print('================================================================');
       }
 
-      if (response.statusCode == 201) {
-        return true;
-      } else {
-        if (kDebugMode) {
-          try {
-            final responseBody = jsonDecode(response.body);
-            print('Failed to add item via service: ${responseBody['message']}');
-          } catch (e) {
-            print('Failed to add item via service, and response body is not valid JSON or has no message. Body: ${response.body}');
-          }
-        }
-        return false;
-      }
+      return response.statusCode == 201;
     } catch (e) {
       if (kDebugMode) {
-        print('Exception when adding item via service: $e');
+        print('Exception when adding item: $e');
       }
       return false;
     }
   }
 
-  // Placeholder for getItems if you have a global item list separate from household items
-  // This was in your provided code, but its usage isn't clear from the current context.
-  // If it's for the global search, that's handled directly in in_house_screen.dart.
+  // For future implementation:
+  // 1. deleteItem method to call the delete API
+  // 2. updateItem method to call the update API
+
   Future<List<Item>> getItems() async {
-    // This method might not be needed if global search is done directly.
-    // If it's meant to fetch all items from the global 'items' table,
-    // ensure your backend has an endpoint like '/api/items/list' or similar.
-    if (kDebugMode) {
-      print("InHouseService.getItems() called - ensure backend endpoint exists and is correct if this is used.");
-    }
-    return []; // Placeholder
+    // This is a placeholder as mentioned in your code
+    return [];
   }
 }

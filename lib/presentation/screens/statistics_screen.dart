@@ -452,49 +452,6 @@ class StatisticsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCostRowItem({
-    required IconData icon,
-    required String title,
-    required String value,
-    required Color iconBgColor,
-    required Color iconFgColor,
-    required ThemeData theme,
-    bool isMonetaryValue = true,
-  }) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: iconBgColor,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: iconFgColor, size: 22),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: TextStyle(fontSize: 12.5, color: theme.hintColor)),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: isMonetaryValue ? 18 : 15,
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onBackground,
-                ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildTopItemsBarChart(BuildContext context, List<Map<String, dynamic>> items, bool isDarkMode) {
     final theme = Theme.of(context);
     final chartItems = items.take(4).toList();

@@ -35,16 +35,18 @@ class StatisticsLoading extends StatisticsState {}
 class StatisticsLoaded extends StatisticsState {
   final List<Map<String, dynamic>> topPurchasedItems;
   final List<Map<String, dynamic>> topExpensiveItems;
-  final String? householdIdForData; // Add this field
+  final double totalMoneySpent; // Added
+  final String? householdIdForData;
 
   const StatisticsLoaded({
     required this.topPurchasedItems,
     required this.topExpensiveItems,
-    this.householdIdForData, // Add to constructor
+    required this.totalMoneySpent, // Added
+    this.householdIdForData, 
   });
 
   @override
-  List<Object?> get props => [topPurchasedItems, topExpensiveItems, householdIdForData]; // Add to props
+  List<Object?> get props => [topPurchasedItems, topExpensiveItems, totalMoneySpent, householdIdForData]; // Added totalMoneySpent
 }
 
 class StatisticsError extends StatisticsState {
@@ -67,11 +69,13 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
       try {
         final topPurchasedItems = await statisticsService.getTopPurchasedItems(event.householdId);
         final topExpensiveItems = await statisticsService.getTopExpensiveItems(event.householdId);
+        final totalMoneySpent = await statisticsService.getTotalMoneySpent(event.householdId); // Added
         
         emit(StatisticsLoaded(
           topPurchasedItems: topPurchasedItems,
           topExpensiveItems: topExpensiveItems,
-          householdIdForData: event.householdId, // Set the householdId here
+          totalMoneySpent: totalMoneySpent, // Added
+          householdIdForData: event.householdId, 
         ));
       } catch (e) {
         emit(StatisticsError(message: 'Failed to load statistics: ${e.toString()}'));

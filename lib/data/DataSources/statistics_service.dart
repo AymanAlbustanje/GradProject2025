@@ -86,4 +86,48 @@ class StatisticsService {
       throw Exception('Failed to fetch top expensive items: $e');
     }
   }
+  
+  Future<double> getTotalMoneySpent(String householdId) async {
+    try {
+      final token = await _getToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Authentication token not found');
+      }
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/statistics/total_money_spent?householdId=$householdId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (kDebugMode) {
+        print('===== GET TOTAL MONEY SPENT RESPONSE =====');
+        print('Status code: ${response.statusCode}');
+        print('Body: ${response.body}');
+      }
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        // The backend sends {"message":"...", "totalMoneySpent": value}
+        // Ensure the key matches what your backend sends.
+        // If totalMoneySpent can be null from backend, handle it.
+        final dynamic spentAmount = data['totalMoneySpent'];
+        if (spentAmount is num) {
+          return spentAmount.toDouble();
+        } else if (spentAmount is String) {
+          return double.tryParse(spentAmount) ?? 0.0;
+        }
+        return 0.0; // Default if null or not a number
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception('Failed to load total money spent: ${errorData['message'] ?? response.reasonPhrase}');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching total money spent: $e');
+      }
+      throw Exception('Failed to fetch total money spent: $e');
+    }
+  }
 }

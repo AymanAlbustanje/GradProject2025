@@ -1,10 +1,11 @@
-// ignore_for_file: use_build_context_synchronously, deprecated_member_use, library_private_types_in_public_api, control_flow_in_finally
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use, library_private_types_in_public_api, control_flow_in_finally, prefer_is_not_operator
 
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:gradproject2025/data/DataSources/notification_service.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:gradproject2025/Logic/blocs/current_household_bloc.dart';
 import 'package:gradproject2025/api_constants.dart';
@@ -25,8 +26,8 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
   bool _isLoading = false;
   Timer? _debounce;
   String? _currentHouseholdId;
+  final NotificationService _notificationService = NotificationService();
   final String _defaultItemPhotoUrl = 'https://i.pinimg.com/736x/82/be/d4/82bed479344270067e3d2171379949b3.jpg';
-
 
   @override
   void initState() {
@@ -49,15 +50,14 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
   void _onSearchChanged() {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted) return; // Check mounted before proceeding
       if (_searchController.text.trim().isNotEmpty) {
         _searchItems(_searchController.text.trim());
       } else {
-        if (mounted) {
-          setState(() {
-            _searchResults = [];
-            _isLoading = false;
-          });
-        }
+        setState(() {
+          _searchResults = [];
+          _isLoading = false;
+        });
       }
     });
   }
@@ -77,10 +77,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
 
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}/api/items/search-name'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json'
-        },
+        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
         body: jsonEncode({'name': query}),
       );
 
@@ -97,9 +94,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
           _searchResults = [];
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to search items: ${response.reasonPhrase}')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to search items: ${response.reasonPhrase}')));
       }
     } catch (e) {
       if (!mounted) return;
@@ -107,9 +102,59 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
         _isLoading = false;
         _searchResults = [];
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error searching items: ${e.toString()}')),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error searching items: ${e.toString()}')));
+    }
+  }
+
+  Future<void> _startBarcodeScanning() async {
+    String? result;
+    if (!mounted) return;
+
+    try {
+      result = await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (scannerContext) => Scaffold(
+            appBar: AppBar(
+              title: const Text('Scan Barcode'),
+              backgroundColor: Theme.of(scannerContext).colorScheme.primary,
+              foregroundColor: Colors.white,
+            ),
+            body: MobileScanner(
+              controller: MobileScannerController(
+                detectionSpeed: DetectionSpeed.normal,
+                facing: CameraFacing.back,
+                torchEnabled: false,
+              ),
+              onDetect: (capture) {
+                final List<Barcode> barcodes = capture.barcodes;
+                for (final barcode in barcodes) {
+                  if (barcode.rawValue != null) {
+                    if (Navigator.of(scannerContext).canPop()) {
+                      Navigator.of(scannerContext).pop(barcode.rawValue);
+                    }
+                    break;
+                  }
+                }
+              },
+            ),
+          ),
+        ),
       );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error during barcode scanning: $e');
+      }
+      return;
+    }
+
+    if (result != null && mounted) {
+      await Future.delayed(const Duration(milliseconds: 500)); // For camera resource release
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Barcode detected: $result')),
+        );
+        await _searchByBarcode(result);
+      }
     }
   }
 
@@ -117,6 +162,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
     if (!mounted) return;
     setState(() {
       _isLoading = true;
+      _searchResults = []; // Clear previous results
     });
 
     try {
@@ -128,26 +174,33 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
 
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}/api/items/search-barcode'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json'
-        },
+        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
         body: jsonEncode({'barcode': barcode}),
       );
 
+      _logApiResponse(response, contextMsg: 'Search by Barcode');
       if (!mounted) return;
+
+      setState(() { // Always set loading to false after API call
+        _isLoading = false;
+      });
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        setState(() {
-          _searchResults = data['items'];
-          _isLoading = false;
-        });
+        final items = data['items'];
+
+        if (items.isNotEmpty) {
+          setState(() {
+            _searchResults = items;
+          });
+          // Call dialog method directly. It has its own mounted checks.
+          showAddToHouseholdFormPublic(items[0]);
+        } else {
+          // _searchResults is already empty
+          _showCreateItemForm('', barcodeValue: barcode);
+        }
       } else {
-        setState(() {
-          _isLoading = false;
-          _searchResults = [];
-        });
+        // _searchResults is already empty
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to find items by barcode: ${response.reasonPhrase}')),
         );
@@ -155,8 +208,8 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _isLoading = false;
-        _searchResults = [];
+        _isLoading = false; // Ensure loading is stopped on error
+        _searchResults = []; // Ensure results are cleared
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error searching by barcode: ${e.toString()}')),
@@ -172,41 +225,45 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
       print('============================');
     }
   }
-  
-  void showAddToHouseholdFormPublic(dynamic item) {
+
+  void showAddToHouseholdFormPublic(dynamic itemFromApi) {
+    if (!mounted) {
+      if (kDebugMode) print("showAddToHouseholdFormPublic: Widget not mounted, aborting dialog.");
+      return;
+    }
+    // itemFromApi is the direct item from _searchResults (API response)
     final Map<String, dynamic> mappedItem = {
-      'item_id': item['item_id'] ?? item['id'], 
-      'item_name': item['item_name'] ?? item['name'],
-      'category': item['category'],
-      'item_photo': item['item_photo'] ?? item['photoUrl'],
+      'id': itemFromApi['item_id'],
+      'name': itemFromApi['item_name'],
+      'photo_url': itemFromApi['item_photo'], // Use item_photo as per API
+      'category': itemFromApi['category'],
     };
     _showAddToHouseholdForm(mappedItem);
   }
 
-  void _showAddToHouseholdForm(dynamic item) {
+  void _showAddToHouseholdForm(dynamic item) { // item here is the mappedItem
+    if (!mounted) {
+      if (kDebugMode) print("_showAddToHouseholdForm: Widget not mounted, aborting dialog.");
+      return;
+    }
+
     final TextEditingController priceController = TextEditingController();
     final formKey = GlobalKey<FormState>();
     DateTime? selectedExpirationDate;
-    const String selectedLocation = 'in_house';
+    // const String selectedLocation = 'in_house'; // Defined but not used in submission logic
 
     final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
-    if (currentHouseholdState is CurrentHouseholdSet) {
-      _currentHouseholdId = currentHouseholdState.household.id?.toString();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No household selected. Please select a household first.')),
-      );
-      return;
-    }
-    if (_currentHouseholdId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Household ID is missing. Cannot add item.')),
-      );
+    if (!(_currentHouseholdId != null && _currentHouseholdId!.isNotEmpty)) {
+       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a household first')),
+        );
+      }
       return;
     }
 
     showDialog(
-      context: context,
+      context: context, // Use ItemSearchWidgetState's context
       builder: (dialogContext) {
         final isDarkMode = Theme.of(dialogContext).brightness == Brightness.dark;
         final primaryColor = Theme.of(dialogContext).colorScheme.primary;
@@ -214,8 +271,8 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
         final textColor = isDarkMode ? Colors.white : Colors.black87;
         final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[700];
 
-        return StatefulBuilder(
-          builder: (context, stfSetState) {
+        return StatefulBuilder( // For dialog's own state like selectedExpirationDate
+          builder: (stfContext, stfSetState) {
             return AlertDialog(
               backgroundColor: backgroundColor,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
@@ -224,10 +281,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                   Icon(Icons.add_shopping_cart, color: primaryColor, size: 24),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      'Add to Household',
-                      style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
-                    ),
+                    child: Text('Add to Household', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -238,32 +292,30 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Display Item Name, Category, Photo
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: (item['item_photo'] != null && item['item_photo'].toString().isNotEmpty)
-                              ? Image.network(
-                                  item['item_photo'],
-                                  width: 60,
-                                  height: 60,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => 
-                                    Container(
+                            child: (item['photo_url'] != null && item['photo_url'].toString().isNotEmpty)
+                                ? Image.network(
+                                    item['photo_url'], // Uses 'photo_url' from mappedItem
+                                    width: 60,
+                                    height: 60,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) => Container(
                                       width: 60,
                                       height: 60,
                                       color: Colors.grey[300],
                                       child: const Icon(Icons.image_not_supported, color: Colors.grey),
                                     ),
-                                )
-                              : Container(
-                                  width: 60,
-                                  height: 60,
-                                  color: Colors.grey[300],
-                                  child: const Icon(Icons.image_not_supported, color: Colors.grey),
-                                ),
+                                  )
+                                : Container(
+                                    width: 60,
+                                    height: 60,
+                                    color: Colors.grey[300],
+                                    child: const Icon(Icons.image_not_supported, color: Colors.grey),
+                                  ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -271,20 +323,13 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  item['item_name'] ?? 'Unknown Item',
-                                  style: TextStyle(
-                                    color: textColor,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
+                                  item['name'] ?? 'Unknown Item', // Uses 'name' from mappedItem
+                                  style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 16),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  item['category'] ?? 'Uncategorized',
-                                  style: TextStyle(
-                                    color: subtitleColor,
-                                    fontSize: 14,
-                                  ),
+                                  item['category'] ?? 'Uncategorized', // Uses 'category' from mappedItem
+                                  style: TextStyle(color: subtitleColor, fontSize: 14),
                                 ),
                               ],
                             ),
@@ -292,12 +337,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                         ],
                       ),
                       const SizedBox(height: 20),
-
-                      // Price field
-                      Text(
-                        'Item Price',
-                        style: TextStyle(color: textColor, fontWeight: FontWeight.w500),
-                      ),
+                      Text('Item Price', style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: priceController,
@@ -305,41 +345,28 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                         decoration: InputDecoration(
                           hintText: 'Enter price',
                           prefixIcon: Icon(Icons.attach_money, color: primaryColor),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter a price';
-                          }
-                          if (double.tryParse(value) == null) {
-                            return 'Please enter a valid number';
-                          }
-                          if (double.parse(value) < 0) {
-                            return 'Price must be a positive number';
-                          }
+                          if (value == null || value.isEmpty) return 'Please enter a price';
+                          if (double.tryParse(value) == null) return 'Please enter a valid number';
+                          if (double.parse(value) < 0) return 'Price must be a positive number';
                           return null;
                         },
                       ),
                       const SizedBox(height: 16),
-
-                      // Expiration date field
-                      Text(
-                        'Expiration Date (Optional)',
-                        style: TextStyle(color: textColor, fontWeight: FontWeight.w500),
-                      ),
+                      Text('Expiration Date (Optional)', style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
                       const SizedBox(height: 8),
                       InkWell(
                         onTap: () async {
                           final DateTime? picked = await showDatePicker(
-                            context: context,
+                            context: stfContext, // Use StatefulBuilder's context for date picker
                             initialDate: DateTime.now(),
                             firstDate: DateTime.now(),
                             lastDate: DateTime.now().add(const Duration(days: 1825)), // 5 years
                           );
                           if (picked != null) {
-                            stfSetState(() {
+                            stfSetState(() { // Use stfSetState to update dialog's state
                               selectedExpirationDate = picked;
                             });
                           }
@@ -354,8 +381,8 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                selectedExpirationDate == null 
-                                    ? 'Select Date' 
+                                selectedExpirationDate == null
+                                    ? 'Select Date'
                                     : DateFormat('yyyy-MM-dd').format(selectedExpirationDate!),
                                 style: TextStyle(color: textColor),
                               ),
@@ -370,51 +397,65 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
+                  onPressed: () => Navigator.pop(dialogContext), // Use dialogContext to pop
                   child: Text('CANCEL', style: TextStyle(color: primaryColor)),
                 ),
                 ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    foregroundColor: Colors.white,
-                  ),
+                  style: ElevatedButton.styleFrom(backgroundColor: primaryColor, foregroundColor: Colors.white),
                   onPressed: () async {
                     if (formKey.currentState!.validate()) {
-                      Navigator.pop(dialogContext);
+                      Navigator.pop(dialogContext); // Pop dialog first
+                      if (!mounted) return; // Check mounted before async operation
+
                       try {
                         final prefs = await SharedPreferences.getInstance();
                         final token = prefs.getString('token');
-                        if (token == null) {
-                          throw Exception('Token not found');
-                        }
+                        if (token == null) throw Exception('Token not found');
+
                         final response = await http.post(
                           Uri.parse('${ApiConstants.baseUrl}/api/household-items/add-existing'),
-                          headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer $token',
-                          },
+                          headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
                           body: jsonEncode({
                             'householdId': int.parse(_currentHouseholdId!),
-                            'itemId': item['item_id'],
-                            'location': selectedLocation,
+                            'itemId': item['id'], // Uses 'id' from mappedItem
+                            'location': 'in_house', // selectedLocation,
                             'price': double.tryParse(priceController.text) ?? 0.0,
                             'expirationDate': selectedExpirationDate?.toIso8601String().split('T')[0],
                           }),
                         );
+                        
+                        _logApiResponse(response, contextMsg: 'Add item to household response');
+                        if (!mounted) return;
+
                         if (response.statusCode == 201) {
+                          final responseData = jsonDecode(response.body);
+                          final dynamic householdItemId = responseData['household_item_id'];
+                          final String itemNameValue = item['name'] ?? 'Item'; // Uses 'name' from mappedItem
+                          
+                          if (selectedExpirationDate != null && householdItemId != null) {
+                            final int? notificationId = int.tryParse(householdItemId.toString());
+                            if (notificationId != null) {
+                              await _notificationService.scheduleSimpleExpirationNotification(
+                                id: notificationId,
+                                itemName: itemNameValue,
+                                expirationDate: selectedExpirationDate!,
+                              );
+                              if (kDebugMode) print('Scheduled notification for item $itemNameValue with ID $notificationId');
+                            }
+                          }
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Item added to household successfully')),
                           );
                         } else {
-                          _logApiResponse(response, contextMsg: 'Add item to household error');
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('Failed to add item: ${response.reasonPhrase}')),
                           );
                         }
                       } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error adding item: ${e.toString()}')),
-                        );
+                         if (!mounted) return;
+                         ScaffoldMessenger.of(context).showSnackBar(
+                           SnackBar(content: Text('Error adding item: ${e.toString()}')),
+                         );
                       }
                     }
                   },
@@ -422,16 +463,31 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                 ),
               ],
             );
-          }
+          },
         );
       },
     );
   }
 
-  void _showCreateItemForm(String itemName) {
+  // ...existing code...
+
+void _showCreateItemForm(String itemName, {String? barcodeValue}) {
+  if (!mounted) {
+    if (kDebugMode) print("_showCreateItemForm: Widget not mounted, aborting dialog.");
+    return;
+  }
+
+  // DEBUG: Print the received barcodeValue to confirm it's being passed
+  if (kDebugMode) {
+    print("--- _showCreateItemForm called (Barcode Hidden) ---");
+    print("Received itemName: '$itemName'");
+    print("Received (hidden) barcodeValue: '$barcodeValue'"); // This value will be used for submission
+    print("--------------------------------------------------");
+  }
+
   final TextEditingController nameController = TextEditingController(text: itemName);
   final TextEditingController categoryController = TextEditingController();
-  final TextEditingController barcodeController = TextEditingController();
+  // final TextEditingController barcodeController = TextEditingController(text: barcodeValue ?? ''); // No longer needed for a visible field
   final TextEditingController priceController = TextEditingController();
   final TextEditingController photoUrlController = TextEditingController();
   final formKey = GlobalKey<FormState>();
@@ -439,16 +495,12 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
   String? selectedCategoryDialog;
 
   final List<String> dialogCategories = [
-    'Fruits & Vegetables',
-    'Dairy & Eggs',
-    'Meat & Seafood',
-    'Canned & Jarred',
-    'Dry Goods & Pasta',
-    'Others',
+    'Fruits & Vegetables', 'Dairy & Eggs', 'Meat & Seafood',
+    'Canned & Jarred', 'Dry Goods & Pasta', 'Others',
   ];
 
   showDialog(
-    context: context,
+    context: context, // Use ItemSearchWidgetState's context
     builder: (dialogContext) {
       final isDarkMode = Theme.of(dialogContext).brightness == Brightness.dark;
       final primaryColor = Theme.of(dialogContext).colorScheme.primary;
@@ -457,7 +509,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
       final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[700];
 
       return StatefulBuilder( 
-        builder: (context, stfSetState) {
+        builder: (stfContext, stfSetState) { 
           return AlertDialog(
             backgroundColor: backgroundColor,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
@@ -481,7 +533,9 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Item Name
+                    // Barcode TextFormField is REMOVED from here
+                    // The barcodeValue parameter will be used directly when calling _createNewItem
+
                     TextFormField(
                       controller: nameController,
                       style: TextStyle(color: textColor),
@@ -500,8 +554,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    
-                    // Category
                     DropdownButtonFormField<String>(
                       decoration: InputDecoration(
                         labelText: 'Category',
@@ -515,13 +567,10 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                       style: TextStyle(color: textColor),
                       value: selectedCategoryDialog,
                       items: dialogCategories.map((String category) {
-                        return DropdownMenuItem<String>(
-                          value: category,
-                          child: Text(category),
-                        );
+                        return DropdownMenuItem<String>(value: category, child: Text(category));
                       }).toList(),
                       onChanged: (String? newValue) {
-                        stfSetState(() {
+                        stfSetState(() { 
                           selectedCategoryDialog = newValue;
                           categoryController.text = newValue ?? '';
                         });
@@ -529,8 +578,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                       validator: (v) => v == null ? 'Please select a category' : null,
                     ),
                     const SizedBox(height: 16),
-                    
-                    // Price
                     TextFormField(
                       controller: priceController,
                       style: TextStyle(color: textColor),
@@ -551,8 +598,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    
-                    // Photo URL
                     TextFormField(
                       controller: photoUrlController,
                       style: TextStyle(color: textColor),
@@ -577,28 +622,10 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    
-                    // Barcode
-                    TextFormField(
-                      controller: barcodeController,
-                      style: TextStyle(color: textColor),
-                      keyboardType: TextInputType.text,
-                      decoration: InputDecoration(
-                        labelText: 'Barcode (Optional)',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
-                        prefixIcon: Icon(Icons.qr_code_scanner_outlined, color: primaryColor.withOpacity(0.8)),
-                        labelStyle: TextStyle(color: subtitleColor),
-                        filled: true,
-                        fillColor: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Expiration Date
                     InkWell(
                       onTap: () async {
                         final DateTime? picked = await showDatePicker(
-                          context: dialogContext,
+                          context: stfContext, 
                           initialDate: selectedExpirationDate ?? DateTime.now(),
                           firstDate: DateTime(2000),
                           lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
@@ -606,10 +633,8 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                             return Theme(
                               data: Theme.of(pickerContext).copyWith(
                                 colorScheme: Theme.of(pickerContext).colorScheme.copyWith(
-                                  primary: primaryColor,
-                                  onPrimary: Colors.white,
-                                  surface: backgroundColor,
-                                  onSurface: textColor,
+                                  primary: primaryColor, onPrimary: Colors.white,
+                                  surface: backgroundColor, onSurface: textColor,
                                 ),
                                 dialogBackgroundColor: backgroundColor,
                               ),
@@ -618,7 +643,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                           },
                         );
                         if (picked != null) {
-                          stfSetState(() {
+                          stfSetState(() { 
                             selectedExpirationDate = picked;
                           });
                         }
@@ -651,25 +676,27 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
+                onPressed: () => Navigator.pop(dialogContext), 
                 style: TextButton.styleFrom(foregroundColor: subtitleColor),
                 child: const Text('CANCEL'),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  backgroundColor: primaryColor, foregroundColor: Colors.white,
+                  elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 ),
                 onPressed: () async {
                   if (formKey.currentState!.validate()) {
-                    Navigator.pop(dialogContext);
+                    Navigator.pop(dialogContext); 
+
+                    if(!mounted) return;
+
                     await _createNewItem(
                       name: nameController.text.trim(),
                       category: selectedCategoryDialog ?? '',
-                      barcode: barcodeController.text.trim().isNotEmpty ? barcodeController.text.trim() : null,
+                      // Use the barcodeValue parameter directly here
+                      barcode: barcodeValue?.trim().isNotEmpty == true ? barcodeValue!.trim() : null,
                       price: double.tryParse(priceController.text) ?? 0.0,
                       expirationDate: selectedExpirationDate,
                       itemPhoto: photoUrlController.text.trim().isNotEmpty ? photoUrlController.text.trim() : null,
@@ -680,11 +707,13 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
               ),
             ],
           );
-        }
+        },
       );
     },
   );
 }
+
+// ...existing code...
 
   Future<void> _createNewItem({
     required String name,
@@ -702,91 +731,64 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
-      if (token == null) {
-        throw Exception('Token not found');
-      }
+      if (token == null) throw Exception('Token not found');
 
-      final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
-      if (currentHouseholdState is! CurrentHouseholdSet) {
-        throw Exception('No household selected');
-      }
-      if (currentHouseholdState.household.id == null) {
-        throw Exception('Household ID is missing');
+      if (!(_currentHouseholdId != null && _currentHouseholdId!.isNotEmpty)) {
+        throw Exception('No household selected or household ID is missing');
       }
       
       final String photoToSubmit = (itemPhoto != null && itemPhoto.isNotEmpty) ? itemPhoto : _defaultItemPhotoUrl;
 
-
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}/api/items/create'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
         body: jsonEncode({
           'itemName': name,
           'category': category,
           'barcode': barcode,
-          'householdId': currentHouseholdState.household.id, 
-          'location': 'in_house', 
+          'householdId': int.parse(_currentHouseholdId!),
+          'location': 'in_house',
           'price': price,
           'expirationDate': expirationDate?.toIso8601String().split('T')[0],
           'itemPhoto': photoToSubmit,
         }),
       );
-
+      
+      _logApiResponse(response, contextMsg: 'Create new item response');
       if (!mounted) return;
 
       if (response.statusCode == 201) {
-        await _searchItems(name); 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Item created and added successfully')),
-        );
+        final responseData = jsonDecode(response.body);
+        final dynamic householdItemId = responseData['household_item_id'];
+        
+        if (expirationDate != null && householdItemId != null) {
+          final int? notificationId = int.tryParse(householdItemId.toString());
+          if (notificationId != null) {
+            await _notificationService.scheduleSimpleExpirationNotification(
+              id: notificationId,
+              itemName: name,
+              expirationDate: expirationDate,
+            );
+            if (kDebugMode) print('Scheduled notification for new item $name with ID $notificationId');
+          }
+        }
+        
+        await _searchItems(name); // Refresh search to show the new item if it matches current query
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Item created and added successfully')));
       } else {
-        _logApiResponse(response, contextMsg: 'Create item error');
         final responseBody = jsonDecode(response.body);
         final errorMessage = responseBody['message'] ?? 'Failed to create item: ${response.reasonPhrase}';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage)),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage)));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error creating item: ${e.toString()}')),
-      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error creating item: ${e.toString()}')));
     } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
       }
-    }
-  }
-
-  Future<void> _startBarcodeScanning() async {
-    final result = await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          appBar: AppBar(
-            title: const Text('Scan Barcode'),
-          ),
-          body: MobileScanner(
-            onDetect: (capture) {
-              final List<Barcode> barcodes = capture.barcodes;
-              if (barcodes.isNotEmpty && barcodes[0].rawValue != null) {
-                Navigator.pop(context, barcodes[0].rawValue);
-              }
-            },
-          ),
-        ),
-      ),
-    );
-
-    if (result != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Barcode detected: $result')),
-      );
-      await _searchByBarcode(result);
     }
   }
 
@@ -801,27 +803,27 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
     return BlocListener<CurrentHouseholdBloc, CurrentHouseholdState>(
       listener: (context, state) {
         if (state is CurrentHouseholdSet) {
-          _currentHouseholdId = state.household.id?.toString();
+          if (mounted) { // Check mounted before setState
+            setState(() {
+              _currentHouseholdId = state.household.id?.toString();
+            });
+          }
         }
       },
-      child: Padding( // Added Padding around the whole widget for consistent spacing
-        padding: const EdgeInsets.symmetric(vertical: 8.0), // Adjust vertical padding as needed
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Enhanced search bar
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16.0), // Horizontal margin for search bar
+              margin: const EdgeInsets.symmetric(horizontal: 16.0),
               height: 48,
               decoration: BoxDecoration(
                 color: searchBackgroundColor,
                 borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: primaryColor, width: 1.5),
                 boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
+                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
                 ],
               ),
               child: Row(
@@ -853,11 +855,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                         onTap: _startBarcodeScanning,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          child: Icon(
-                            Icons.qr_code_scanner,
-                            color: primaryColor,
-                            size: 22,
-                          ),
+                          child: Icon(Icons.qr_code_scanner, color: primaryColor, size: 22),
                         ),
                       ),
                     ),
@@ -865,8 +863,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                 ],
               ),
             ),
-            
-            // Conditional content: Loading, No Results, or Results
             if (_isLoading)
               Padding(
                 padding: const EdgeInsets.only(top: 24.0, bottom: 16.0),
@@ -881,13 +877,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Text(
-                      'Searching...',
-                      style: TextStyle(
-                        color: textColor.withOpacity(0.7),
-                        fontSize: 14,
-                      ),
-                    ),
+                    Text('Searching...', style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 14)),
                   ],
                 ),
               )
@@ -897,27 +887,16 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.search_off_rounded,
-                      size: 56,
-                      color: primaryColor.withOpacity(0.5),
-                    ),
+                    Icon(Icons.search_off_rounded, size: 56, color: primaryColor.withOpacity(0.5)),
                     const SizedBox(height: 16),
                     Text(
                       'No items found',
-                      style: TextStyle(
-                        color: textColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
+                      style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 18),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'We couldn\'t find any items matching "${_searchController.text}"',
-                      style: TextStyle(
-                        color: textColor.withOpacity(0.7),
-                        fontSize: 14,
-                      ),
+                      style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 14),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
@@ -926,10 +905,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                       color: cardColor,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(
-                          color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
-                          width: 1,
-                        ),
+                        side: BorderSide(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200, width: 1),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(20.0),
@@ -938,11 +914,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                           children: [
                             Text(
                               'Want to add this item to your inventory?',
-                              style: TextStyle(
-                                color: textColor,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 16,
-                              ),
+                              style: TextStyle(color: textColor, fontWeight: FontWeight.w500, fontSize: 16),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 16),
@@ -953,9 +925,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                                 backgroundColor: primaryColor,
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 elevation: 0,
                               ),
                               onPressed: () {
@@ -969,18 +939,17 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                   ],
                 ),
               )
-            else if (_searchResults.isNotEmpty) // No need for !_isLoading here if it's an else-if chain
-              Padding( // Added padding around the results list
+            else if (_searchResults.isNotEmpty)
+              Padding(
                 padding: const EdgeInsets.only(top: 8.0),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    // Adjust max height as needed, e.g., 40% of screen height
-                    maxHeight: MediaQuery.of(context).size.height * 0.4, 
+                    maxHeight: MediaQuery.of(context).size.height * 0.21,
                   ),
                   child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0), // Horizontal padding for list items
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     shrinkWrap: true,
-                    physics: const BouncingScrollPhysics(), // Or ClampingScrollPhysics
+                    physics: const BouncingScrollPhysics(),
                     itemCount: _searchResults.length,
                     itemBuilder: (context, index) {
                       final item = _searchResults[index];
@@ -990,46 +959,48 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                         color: cardColor,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(
-                            color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
-                            width: 1,
-                          ),
+                          side: BorderSide(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200, width: 1),
                         ),
                         child: ListTile(
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                           leading: Hero(
-                            tag: 'item_search_${item['item_id'] ?? item['id'] ?? index}', // Unique tag for search
+                            tag: 'item_search_${item['item_id'] ?? item['id'] ?? index}',
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: item['item_photo'] != null && item['item_photo'].toString().isNotEmpty
-                                ? Image.network(
-                                    item['item_photo'],
-                                    width: 56,
-                                    height: 56,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => 
-                                      Container(
+                              child:
+                                  item['item_photo'] != null && item['item_photo'].toString().isNotEmpty
+                                      ? Image.network(
+                                        item['item_photo'],
+                                        width: 56,
+                                        height: 56,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) => Container(
+                                              width: 56,
+                                              height: 56,
+                                              color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
+                                              child: Icon(
+                                                Icons.image_not_supported,
+                                                color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
+                                                size: 24,
+                                              ),
+                                            ),
+                                      )
+                                      : Container(
                                         width: 56,
                                         height: 56,
                                         color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
-                                        child: Icon(Icons.image_not_supported, color: isDarkMode ? Colors.grey[600] : Colors.grey[400], size: 24),
+                                        child: Icon(
+                                          Icons.image_not_supported,
+                                          color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
+                                          size: 24,
+                                        ),
                                       ),
-                                  )
-                                : Container(
-                                    width: 56,
-                                    height: 56,
-                                    color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
-                                    child: Icon(Icons.image_not_supported, color: isDarkMode ? Colors.grey[600] : Colors.grey[400], size: 24),
-                                  ),
                             ),
                           ),
                           title: Text(
                             item['item_name'] ?? 'Unknown Item',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: textColor,
-                              fontSize: 16,
-                            ),
+                            style: TextStyle(fontWeight: FontWeight.w600, color: textColor, fontSize: 16),
                           ),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1063,11 +1034,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                                   color: primaryColor.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
-                                child: Icon(
-                                  Icons.add_circle_outline,
-                                  color: primaryColor,
-                                  size: 24,
-                                ),
+                                child: Icon(Icons.add_circle_outline, color: primaryColor, size: 24),
                               ),
                             ),
                           ),

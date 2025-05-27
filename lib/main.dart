@@ -8,9 +8,13 @@ import 'package:gradproject2025/Logic/blocs/in_house_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/household_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/current_household_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:gradproject2025/data/DataSources/notification_service.dart'; // Added
+import 'package:timezone/data/latest_all.dart' as tz; // Added
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  tz.initializeTimeZones(); // Added: Initialize timezones FIRST
+  await NotificationService().init(); // Added: Initialize NotificationService
   final isLoggedIn = await _checkIfLoggedIn();
   runApp(MyApp(isLoggedIn: isLoggedIn));
 }
@@ -41,30 +45,29 @@ class MyApp extends StatelessWidget {
             BlocProvider(create: (context) => InHouseBloc()),
             BlocProvider(create: (context) => HouseholdBloc()),
             BlocProvider(create: (context) => CurrentHouseholdBloc()..add(LoadCurrentHousehold())),
-            BlocProvider<ToBuyBloc>(create: (context) => ToBuyBloc(),
-),
+            BlocProvider<ToBuyBloc>(create: (context) => ToBuyBloc()),
           ],
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
-            title: 'ToBuy App',
+            title: 'ToBuy App', // You can change this title
             theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFF0078D4),
+                seedColor: const Color(0xFF0078D4), // Example seed color
                 brightness: Brightness.light,
               ),
               useMaterial3: true,
             ),
             darkTheme: ThemeData(
               colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFF0078D4),
+                seedColor: const Color(0xFF0078D4), // Example seed color
                 brightness: Brightness.dark,
               ),
               useMaterial3: true,
             ),
             themeMode: themeMode,
-            home: isLoggedIn 
-              ? MainScreen(themeNotifier: themeNotifier)
-              : LoginScreen(themeNotifier: themeNotifier),
+            home: isLoggedIn
+                ? MainScreen(themeNotifier: themeNotifier)
+                : LoginScreen(themeNotifier: themeNotifier),
           ),
         );
       },

@@ -130,4 +130,77 @@ class StatisticsService {
       throw Exception('Failed to fetch total money spent: $e');
     }
   }
+  Future<List<Map<String, dynamic>>> getBottomPurchasedItems(String householdId) async {
+  try {
+    final token = await _getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Authentication token not found');
+    }
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/statistics/purchase_counter-bottom?householdId=$householdId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (kDebugMode) {
+      print('===== GET BOTTOM PURCHASED ITEMS RESPONSE =====');
+      print('Status code: ${response.statusCode}');
+      print('Body: ${response.body}');
+    }
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['items'] is List) {
+        return List<Map<String, dynamic>>.from(data['items']);
+      }
+      return [];
+    } else {
+      throw Exception('Failed to load least purchased items');
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      print('Error fetching least purchased items: $e');
+    }
+    throw Exception('Failed to fetch least purchased items: $e');
+  }
+}
+
+Future<List<Map<String, dynamic>>> getBottomExpensiveItems(String householdId) async {
+  try {
+    final token = await _getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Authentication token not found');
+    }
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/statistics/total_purchase_price-bottom?householdId=$householdId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (kDebugMode) {
+      print('===== GET BOTTOM EXPENSIVE ITEMS RESPONSE =====');
+      print('Status code: ${response.statusCode}');
+      print('Body: ${response.body}');
+    }
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['items'] is List) {
+        return List<Map<String, dynamic>>.from(data['items']);
+      }
+      return [];
+    } else {
+      throw Exception('Failed to load least expensive items');
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      print('Error fetching least expensive items: $e');
+    }
+    throw Exception('Failed to fetch least expensive items: $e');
+  }
+}
 }

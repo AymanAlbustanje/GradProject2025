@@ -855,7 +855,7 @@ void _showCreateItemForm(String itemName, {String? barcodeValue}) {
                         onTap: _startBarcodeScanning,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          child: Icon(Icons.qr_code_scanner, color: primaryColor, size: 22),
+                          child: Icon(Icons.barcode_reader, color: primaryColor, size: 22),
                         ),
                       ),
                     ),

@@ -74,7 +74,7 @@ class HouseholdScreen extends StatelessWidget {
                                         Navigator.pop(context);
                                       },
                                       icon: const Icon(Icons.visibility, size: 18),
-                                      label: const Text('OPEN'),
+                                      label: const Text('Enter'),
                                       style: OutlinedButton.styleFrom(
                                         foregroundColor: const Color(0xFF0078D4),
                                         padding: const EdgeInsets.symmetric(vertical: 12),

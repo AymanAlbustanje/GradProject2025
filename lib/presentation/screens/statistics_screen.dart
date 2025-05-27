@@ -33,7 +33,8 @@ class StatisticsScreen extends StatelessWidget {
       final householdId = currentHouseholdState.household.id.toString();
       final statisticsBloc = context.read<StatisticsBloc>();
       if (statisticsBloc.state is StatisticsInitial ||
-          (statisticsBloc.state is StatisticsLoaded && (statisticsBloc.state as StatisticsLoaded).householdIdForData != householdId) ||
+          (statisticsBloc.state is StatisticsLoaded &&
+              (statisticsBloc.state as StatisticsLoaded).householdIdForData != householdId) ||
           statisticsBloc.state is StatisticsError) {
         statisticsBloc.add(LoadStatistics(householdId: householdId));
       }
@@ -52,7 +53,11 @@ class StatisticsScreen extends StatelessWidget {
             children: [
               Icon(Icons.home_work_outlined, size: 60, color: theme.hintColor),
               const SizedBox(height: 16),
-              Text('Please select a household to view statistics.', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: theme.hintColor)),
+              Text(
+                'Please select a household to view statistics.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: theme.hintColor),
+              ),
             ],
           ),
         ),
@@ -96,14 +101,30 @@ class StatisticsScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: Column(
-                  children: List.generate(3, (index) => Container(
-                    height: 60, width: double.infinity, color: theme.cardColor, margin: const EdgeInsets.only(bottom: 12),
-                    child: Row(children: [Container(width: 40, height: 40, color: theme.splashColor), const SizedBox(width: 10), Expanded(child: Container(height: 20, color: theme.splashColor))]),
-                  )),
+                  children: List.generate(
+                    3,
+                    (index) => Container(
+                      height: 60,
+                      width: double.infinity,
+                      color: theme.cardColor,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          Container(width: 40, height: 40, color: theme.splashColor),
+                          const SizedBox(width: 10),
+                          Expanded(child: Container(height: 20, color: theme.splashColor)),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
-              Container(width: 120, height: 120, decoration: BoxDecoration(shape: BoxShape.circle, color: theme.cardColor)),
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: theme.cardColor),
+              ),
             ],
           ),
           const SizedBox(height: 24),
@@ -125,7 +146,13 @@ class StatisticsScreen extends StatelessWidget {
           children: [
             Icon(Icons.error_outline_rounded, color: theme.colorScheme.error, size: 70),
             const SizedBox(height: 20),
-            Text('Oops! Something Went Wrong', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.onErrorContainer)),
+            Text(
+              'Oops! Something Went Wrong',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onErrorContainer,
+              ),
+            ),
             const SizedBox(height: 10),
             Text(message, style: TextStyle(fontSize: 16, color: theme.hintColor), textAlign: TextAlign.center),
             const SizedBox(height: 30),
@@ -135,11 +162,19 @@ class StatisticsScreen extends StatelessWidget {
               onPressed: () {
                 final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
                 if (currentHouseholdState is CurrentHouseholdSet && currentHouseholdState.household.id != null) {
-                  context.read<StatisticsBloc>().add(LoadStatistics(householdId: currentHouseholdState.household.id.toString()));
+                  context.read<StatisticsBloc>().add(
+                    LoadStatistics(householdId: currentHouseholdState.household.id.toString()),
+                  );
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: baseMediumBlue, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14), textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-            )
+              style: ElevatedButton.styleFrom(
+                backgroundColor: baseMediumBlue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
           ],
         ),
       ),
@@ -178,21 +213,21 @@ class StatisticsScreen extends StatelessWidget {
       topCostItemName = state.topExpensiveItems.first['item_name'] ?? "N/A";
       topCostItemValue = _parseNum(state.topExpensiveItems.first['total_purchase_price']);
     }
-    
+
     bool noMonthlyData = state.totalMoneySpent == 0 && state.topExpensiveItems.isEmpty;
     bool noQuantityData = state.topPurchasedItems.isEmpty;
     bool noCostData = state.topExpensiveItems.isEmpty;
 
-    Color iconBgColor = isDarkMode 
-    ? baseMediumBlue.withOpacity(0.2) 
-    : baseMediumBlue.withOpacity(0.1);
+    Color iconBgColor = isDarkMode ? baseMediumBlue.withOpacity(0.2) : baseMediumBlue.withOpacity(0.1);
     Color iconFgColor = baseMediumBlue;
 
     return RefreshIndicator(
       onRefresh: () async {
         final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
         if (currentHouseholdState is CurrentHouseholdSet && currentHouseholdState.household.id != null) {
-          context.read<StatisticsBloc>().add(LoadStatistics(householdId: currentHouseholdState.household.id.toString()));
+          context.read<StatisticsBloc>().add(
+            LoadStatistics(householdId: currentHouseholdState.household.id.toString()),
+          );
         }
       },
       child: ListView(
@@ -202,13 +237,11 @@ class StatisticsScreen extends StatelessWidget {
           _buildDottedDivider(context),
           const SizedBox(height: 12),
           if (noMonthlyData)
-            _buildEmptySectionPlaceholder(context,"No monthly cost data available yet.")
+            _buildEmptySectionPlaceholder(context, "No monthly cost data available yet.")
           else
             Container(
               decoration: BoxDecoration(
-                color: isDarkMode 
-                    ? baseMediumBlue.withOpacity(0.08) 
-                    : baseMediumBlue.withOpacity(0.04),
+                color: isDarkMode ? baseMediumBlue.withOpacity(0.08) : baseMediumBlue.withOpacity(0.04),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -219,10 +252,7 @@ class StatisticsScreen extends StatelessWidget {
                       children: [
                         Container(
                           padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: iconBgColor,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                          decoration: BoxDecoration(color: iconBgColor, borderRadius: BorderRadius.circular(10)),
                           child: Icon(Icons.attach_money, color: iconFgColor, size: 24),
                         ),
                         const SizedBox(width: 16),
@@ -231,11 +261,7 @@ class StatisticsScreen extends StatelessWidget {
                           children: [
                             Text(
                               'Money Spent',
-                              style: TextStyle(
-                                fontSize: 13, 
-                                color: theme.hintColor,
-                                fontWeight: FontWeight.w500
-                              ),
+                              style: TextStyle(fontSize: 13, color: theme.hintColor, fontWeight: FontWeight.w500),
                             ),
                             const SizedBox(height: 4),
                             Text(
@@ -251,20 +277,14 @@ class StatisticsScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Container(
-                    height: 1,
-                    color: theme.dividerColor.withOpacity(0.3),
-                  ),
+                  Container(height: 1, color: theme.dividerColor.withOpacity(0.3)),
                   Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: iconBgColor,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                          decoration: BoxDecoration(color: iconBgColor, borderRadius: BorderRadius.circular(10)),
                           child: Icon(Icons.star, color: iconFgColor, size: 24),
                         ),
                         const SizedBox(width: 16),
@@ -274,11 +294,7 @@ class StatisticsScreen extends StatelessWidget {
                             children: [
                               Text(
                                 'Mostly Spent On',
-                                style: TextStyle(
-                                  fontSize: 13, 
-                                  color: theme.hintColor,
-                                  fontWeight: FontWeight.w500
-                                ),
+                                style: TextStyle(fontSize: 13, color: theme.hintColor, fontWeight: FontWeight.w500),
                               ),
                               const SizedBox(height: 4),
                               Text(
@@ -304,16 +320,36 @@ class StatisticsScreen extends StatelessWidget {
           Text('Stock Statistics', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
           _buildDottedDivider(context),
           const SizedBox(height: 16),
-          Text('Top Frequent Items', style: theme.textTheme.titleMedium?.copyWith(color: theme.hintColor)),
+          _buildChartHeader(context, 'Frequently bought Items', state.isShowingTopPurchased, (isShowingTop) {
+            final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
+            if (currentHouseholdState is CurrentHouseholdSet && currentHouseholdState.household.id != null) {
+              final householdId = currentHouseholdState.household.id.toString();
+              if (isShowingTop) {
+                context.read<StatisticsBloc>().add(LoadTopPurchasedItems(householdId: householdId));
+              } else {
+                context.read<StatisticsBloc>().add(LoadLeastPurchasedItems(householdId: householdId));
+              }
+            }
+          }),
           const SizedBox(height: 16),
           if (noQuantityData)
             _buildEmptySectionPlaceholder(context, "No item purchase quantity data available yet.")
           else
             _buildTopItemsBarChart(context, state.topPurchasedItems, isDarkMode),
-          
+
           // New section for Top Costing Items
           const SizedBox(height: 30),
-          Text('Top Costing Items', style: theme.textTheme.titleMedium?.copyWith(color: theme.hintColor)),
+          _buildChartHeader(context, 'Costing Items', state.isShowingTopExpensive, (isShowingTop) {
+            final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
+            if (currentHouseholdState is CurrentHouseholdSet && currentHouseholdState.household.id != null) {
+              final householdId = currentHouseholdState.household.id.toString();
+              if (isShowingTop) {
+                context.read<StatisticsBloc>().add(LoadTopExpensiveItems(householdId: householdId));
+              } else {
+                context.read<StatisticsBloc>().add(LoadLeastExpensiveItems(householdId: householdId));
+              }
+            }
+          }),
           const SizedBox(height: 16),
           if (noCostData)
             _buildEmptySectionPlaceholder(context, "No cost data available yet.")
@@ -323,22 +359,31 @@ class StatisticsScreen extends StatelessWidget {
       ),
     );
   }
-  
-  Widget _buildTopCostingItemsBarChart(BuildContext context, List<Map<String, dynamic>> items, bool isDarkMode, NumberFormat currencyFormat) {
+
+  Widget _buildTopCostingItemsBarChart(
+    BuildContext context,
+    List<Map<String, dynamic>> items,
+    bool isDarkMode,
+    NumberFormat currencyFormat,
+  ) {
     final theme = Theme.of(context);
     final chartItems = items.take(4).toList();
     // Use different colors from the purchase quantity chart to visually distinguish them
-    final List<Color> barColors = [
-        Colors.teal[300]!, 
-        Colors.amber[400]!, 
-        Colors.indigo[300]!,
-        Colors.deepOrange[300]!
-    ].map((c) => isDarkMode ? c.withOpacity(0.85) : c).toList(); 
-    
+    final List<Color> barColors =
+        [
+          Colors.teal[300]!,
+          Colors.amber[400]!,
+          Colors.indigo[300]!,
+          Colors.deepOrange[300]!,
+        ].map((c) => isDarkMode ? c.withOpacity(0.85) : c).toList();
+
     final List<String> itemLetters = ['a', 'b', 'c', 'd'];
 
     if (chartItems.isEmpty) {
-      return SizedBox(height: 250, child: Center(child: Text("No cost data available yet.", style: TextStyle(color: theme.hintColor))));
+      return SizedBox(
+        height: 250,
+        child: Center(child: Text("No cost data available yet.", style: TextStyle(color: theme.hintColor))),
+      );
     }
 
     double maxYValue = 0;
@@ -374,11 +419,7 @@ class StatisticsScreen extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 5.0),
                         child: Text(
                           currencyFormat.format(val), // Use currency format for cost values
-                          style: TextStyle(
-                            color: theme.hintColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: TextStyle(color: theme.hintColor, fontSize: 12, fontWeight: FontWeight.w500),
                         ),
                       );
                     },
@@ -387,22 +428,23 @@ class StatisticsScreen extends StatelessWidget {
               ),
               gridData: const FlGridData(show: false),
               borderData: FlBorderData(show: false),
-              barGroups: chartItems.asMap().entries.map((entry) {
-                final int index = entry.key;
-                final item = entry.value;
-                final double val = _parseNum(item['total_purchase_price']);
-                return BarChartGroupData(
-                  x: index,
-                  barRods: [
-                    BarChartRodData(
-                      toY: val,
-                      color: barColors[index % barColors.length],
-                      width: 28,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ],
-                );
-              }).toList(),
+              barGroups:
+                  chartItems.asMap().entries.map((entry) {
+                    final int index = entry.key;
+                    final item = entry.value;
+                    final double val = _parseNum(item['total_purchase_price']);
+                    return BarChartGroupData(
+                      x: index,
+                      barRods: [
+                        BarChartRodData(
+                          toY: val,
+                          color: barColors[index % barColors.length],
+                          width: 28,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ],
+                    );
+                  }).toList(),
             ),
           ),
         ),
@@ -412,30 +454,37 @@ class StatisticsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCostingItemsLegend(BuildContext context, List<Map<String, dynamic>> items, List<Color> colors, List<String> letters, ThemeData theme) {
+  Widget _buildCostingItemsLegend(
+    BuildContext context,
+    List<Map<String, dynamic>> items,
+    List<Color> colors,
+    List<String> letters,
+    ThemeData theme,
+  ) {
     return Wrap(
       spacing: 20.0,
       runSpacing: 10.0,
       alignment: WrapAlignment.start,
-      children: items.asMap().entries.map((entry) {
-        final int index = entry.key;
-        final item = entry.value;
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: colors[index % colors.length],
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(item['item_name'] ?? 'N/A', style: TextStyle(fontSize: 13, color: theme.colorScheme.onBackground)),
-          ],
-        );
-      }).toList(),
+      children:
+          items.asMap().entries.map((entry) {
+            final int index = entry.key;
+            final item = entry.value;
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: colors[index % colors.length],
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(item['item_name'] ?? 'N/A', style: TextStyle(fontSize: 13, color: theme.colorScheme.onBackground)),
+              ],
+            );
+          }).toList(),
     );
   }
 
@@ -444,25 +493,28 @@ class StatisticsScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 30.0),
       alignment: Alignment.center,
-      child: Text(
-        message,
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 15, color: theme.hintColor),
-      ),
+      child: Text(message, textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: theme.hintColor)),
     );
   }
 
   Widget _buildTopItemsBarChart(BuildContext context, List<Map<String, dynamic>> items, bool isDarkMode) {
     final theme = Theme.of(context);
     final chartItems = items.take(4).toList();
-    final List<Color> barColors = [
-        baseBarColorCoral, baseBarColorYellow, baseBarColorPurpleAccent, baseBarColorBlue
-    ].map((c) => isDarkMode ? c.withOpacity(0.85) : c).toList(); // Slightly adjust for dark mode
-    
+    final List<Color> barColors =
+        [
+          baseBarColorCoral,
+          baseBarColorYellow,
+          baseBarColorPurpleAccent,
+          baseBarColorBlue,
+        ].map((c) => isDarkMode ? c.withOpacity(0.85) : c).toList(); // Slightly adjust for dark mode
+
     final List<String> itemLetters = ['a', 'b', 'c', 'd'];
 
     if (chartItems.isEmpty) {
-      return SizedBox(height: 250, child: Center(child: Text("No item purchase data yet.", style: TextStyle(color: theme.hintColor))));
+      return SizedBox(
+        height: 250,
+        child: Center(child: Text("No item purchase data yet.", style: TextStyle(color: theme.hintColor))),
+      );
     }
 
     double maxYValue = 0;
@@ -498,11 +550,7 @@ class StatisticsScreen extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 5.0),
                         child: Text(
                           val.toString(),
-                          style: TextStyle(
-                            color: theme.hintColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: TextStyle(color: theme.hintColor, fontSize: 12, fontWeight: FontWeight.w500),
                         ),
                       );
                     },
@@ -511,22 +559,23 @@ class StatisticsScreen extends StatelessWidget {
               ),
               gridData: const FlGridData(show: false),
               borderData: FlBorderData(show: false),
-              barGroups: chartItems.asMap().entries.map((entry) {
-                final int index = entry.key;
-                final item = entry.value;
-                final double val = _parseNum(item['purchase_counter']);
-                return BarChartGroupData(
-                  x: index,
-                  barRods: [
-                    BarChartRodData(
-                      toY: val,
-                      color: barColors[index % barColors.length],
-                      width: 28,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ],
-                );
-              }).toList(),
+              barGroups:
+                  chartItems.asMap().entries.map((entry) {
+                    final int index = entry.key;
+                    final item = entry.value;
+                    final double val = _parseNum(item['purchase_counter']);
+                    return BarChartGroupData(
+                      x: index,
+                      barRods: [
+                        BarChartRodData(
+                          toY: val,
+                          color: barColors[index % barColors.length],
+                          width: 28,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ],
+                    );
+                  }).toList(),
             ),
           ),
         ),
@@ -536,30 +585,62 @@ class StatisticsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBarChartLegend(BuildContext context, List<Map<String, dynamic>> items, List<Color> colors, List<String> letters, ThemeData theme) {
+  Widget _buildChartHeader(BuildContext context, String baseTitle, bool isShowingTop, Function(bool) onToggleChanged) {
+    final theme = Theme.of(context);
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(baseTitle, style: theme.textTheme.titleMedium?.copyWith(color: theme.hintColor)),
+        DropdownButton<bool>(
+          value: isShowingTop,
+          underline: const SizedBox(),
+          icon: Icon(Icons.filter_list, color: baseMediumBlue, size: 20),
+          items: const [
+            DropdownMenuItem(value: true, child: Text('Top')),
+            DropdownMenuItem(value: false, child: Text('Least')),
+          ],
+          onChanged: (value) {
+            if (value != null) {
+              onToggleChanged(value);
+            }
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBarChartLegend(
+    BuildContext context,
+    List<Map<String, dynamic>> items,
+    List<Color> colors,
+    List<String> letters,
+    ThemeData theme,
+  ) {
     return Wrap(
       spacing: 20.0,
       runSpacing: 10.0,
       alignment: WrapAlignment.start,
-      children: items.asMap().entries.map((entry) {
-        final int index = entry.key;
-        final item = entry.value;
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: colors[index % colors.length],
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(item['item_name'] ?? 'N/A', style: TextStyle(fontSize: 13, color: theme.colorScheme.onBackground)),
-          ],
-        );
-      }).toList(),
+      children:
+          items.asMap().entries.map((entry) {
+            final int index = entry.key;
+            final item = entry.value;
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: colors[index % colors.length],
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(item['item_name'] ?? 'N/A', style: TextStyle(fontSize: 13, color: theme.colorScheme.onBackground)),
+              ],
+            );
+          }).toList(),
     );
   }
 

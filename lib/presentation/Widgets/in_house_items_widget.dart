@@ -588,7 +588,7 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                   itemBuilder: (BuildContext context) => [
                     const PopupMenuItem<String>(
                       value: 'update',
-                      child: Row(children: [Icon(Icons.edit, size: 20), SizedBox(width: 8), Text('Update')]),
+                      child: Row(children: [Icon(Icons.edit, size: 20), SizedBox(width: 8), Text('Edit')]),
                     ),
                     const PopupMenuItem<String>(
                       value: 'delete',

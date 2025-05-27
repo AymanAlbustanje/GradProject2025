@@ -159,7 +159,7 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
   mainAxisSize: MainAxisSize.min,
   children: [
     IconButton(
-      icon: const Icon(Icons.home_outlined, color: Colors.green),
+      icon: const Icon(Icons.add_home_outlined, color: Colors.green),
       tooltip: 'Move to In-House',
       onPressed: () => _showMoveToHouseDialog(context, item),
     ),

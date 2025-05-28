@@ -1,5 +1,4 @@
 // ignore_for_file: use_build_context_synchronously, deprecated_member_use, library_private_types_in_public_api, control_flow_in_finally
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/current_household_bloc.dart';
@@ -14,7 +13,6 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:gradproject2025/data/DataSources/notification_service.dart';
 
 class InHouseItemsWidget extends StatefulWidget {
@@ -57,67 +55,78 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
     }
   }
 
-  Future<String?> _scanBarcode(BuildContext context) async {
-    return await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          appBar: AppBar(
-            title: const Text('Scan Barcode'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            foregroundColor: Colors.white,
-          ),
-          body: MobileScanner(
-            controller: MobileScannerController(
-              detectionSpeed: DetectionSpeed.normal,
-              facing: CameraFacing.back,
-              torchEnabled: false,
-            ),
-            onDetect: (capture) {
-              final List<Barcode> barcodes = capture.barcodes;
-              for (final barcode in barcodes) {
-                if (barcode.rawValue != null) {
-                  Navigator.of(context).pop(barcode.rawValue);
-                  break;
-                }
-              }
-            },
-          ),
-        ),
-      ),
-    );
-  }
+  // Future<String?> _scanBarcode(BuildContext context) async {
+  //   return await Navigator.of(context).push(
+  //     MaterialPageRoute(
+  //       builder: (context) => Scaffold(
+  //         appBar: AppBar(
+  //           title: const Text('Scan Barcode'),
+  //           backgroundColor: Theme.of(context).colorScheme.primary,
+  //           foregroundColor: Colors.white,
+  //         ),
+  //         body: MobileScanner(
+  //           controller: MobileScannerController(
+  //             detectionSpeed: DetectionSpeed.normal,
+  //             facing: CameraFacing.back,
+  //             torchEnabled: false,
+  //           ),
+  //           onDetect: (capture) {
+  //             final List<Barcode> barcodes = capture.barcodes;
+  //             for (final barcode in barcodes) {
+  //               if (barcode.rawValue != null) {
+  //                 Navigator.of(context).pop(barcode.rawValue);
+  //                 break;
+  //               }
+  //             }
+  //           },
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
 
   void displayCreateAndAddItemForm(
+    BuildContext parentDialogContext, // <<<< ADD THIS PARAMETER
     String itemNameFromSearch, {
     String? barcodeValue,
+    String? initialPhotoUrl,
     Function(List<Map<String, dynamic>> foundItems)? onBarcodeFoundExistingItems,
   }) {
+    if (kDebugMode) {
+      print('--- displayCreateAndAddItemForm called ---');
+      print('Received itemName: \'$itemNameFromSearch\'');
+      print('Received initialPhotoUrl: \'$initialPhotoUrl\'');
+      print('Received barcodeValue: \'$barcodeValue\'');
+    }
+
     final TextEditingController itemNameController = TextEditingController(text: itemNameFromSearch);
     final TextEditingController priceController = TextEditingController();
-    final TextEditingController photoUrlController = TextEditingController();
-    final TextEditingController barcodeController = TextEditingController(text: barcodeValue ?? '');
+    // final TextEditingController barcodeController = TextEditingController(text: barcodeValue ?? ''); // Not used in form fields directly, barcodeValue is used for submission
+    final TextEditingController photoUrlController = TextEditingController(text: initialPhotoUrl ?? '');
     final formKey = GlobalKey<FormState>();
     DateTime? selectedExpirationDate;
     dynamic selectedHouseholdId;
     String? selectedCategoryDialog;
 
+    // Use the context of InHouseItemsWidget to read from Bloc initially
     final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
     if (currentHouseholdState is CurrentHouseholdSet) {
       selectedHouseholdId = currentHouseholdState.household.id;
     }
 
     showDialog(
-      context: context,
-      builder: (dialogContext) {
-        final isDarkMode = Theme.of(dialogContext).brightness == Brightness.dark;
-        final primaryColor = Theme.of(dialogContext).colorScheme.primary;
-        final errorColor = Theme.of(dialogContext).colorScheme.error;
+      context: parentDialogContext, // <<<< USE THE PASSED CONTEXT HERE
+      builder: (dialogItselfContext) { // This context is for the AlertDialog's builder
+        final isDarkMode = Theme.of(dialogItselfContext).brightness == Brightness.dark;
+        final primaryColor = Theme.of(dialogItselfContext).colorScheme.primary;
+        final errorColor = Theme.of(dialogItselfContext).colorScheme.error;
         final backgroundColor = isDarkMode ? const Color(0xFF1F1F1F) : Colors.white;
         final textColor = isDarkMode ? Colors.white : Colors.black87;
         final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[700];
 
         return StatefulBuilder(
           builder: (stfContext, stfSetState) {
+            // Use blocContext from the widget's own context for BlocBuilder if needed for household list
             return BlocBuilder<HouseholdBloc, HouseholdState>(
               bloc: BlocProvider.of<HouseholdBloc>(context)..add(LoadHouseholds()),
               builder: (blocContext, householdState) {
@@ -139,180 +148,224 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                       ),
                     ],
                   ),
-                  content: SingleChildScrollView(
-                    child: Form(
-                      key: formKey,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextFormField(
-                            controller: itemNameController,
-                            style: TextStyle(color: textColor),
-                            decoration: InputDecoration(
-                              labelText: 'Item Name',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
-                              prefixIcon: Icon(Icons.label_outline, color: primaryColor.withOpacity(0.8)),
-                              labelStyle: TextStyle(color: subtitleColor),
-                              filled: true,
-                              fillColor: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
-                            ),
-                            validator: (v) {
-                              if (v == null || v.trim().isEmpty) return 'Item name is required';
-                              if (v.trim().length < 2) return 'Name must be at least 2 characters';
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          DropdownButtonFormField<String>(
-                            decoration: InputDecoration(
-                              labelText: 'Category',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
-                              prefixIcon: Icon(Icons.category_outlined, color: primaryColor.withOpacity(0.8)),
-                              labelStyle: TextStyle(color: subtitleColor),
-                              filled: true,
-                              fillColor: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
-                            ),
-                            dropdownColor: backgroundColor,
-                            style: TextStyle(color: textColor),
-                            value: selectedCategoryDialog,
-                            items: _dialogCategories.map((String category) {
-                              return DropdownMenuItem<String>(value: category, child: Text(category));
-                            }).toList(),
-                            onChanged: (String? newValue) {
-                              stfSetState(() {
-                                selectedCategoryDialog = newValue;
-                              });
-                            },
-                            validator: (v) => v == null ? 'Please select a category' : null,
-                          ),
-                          if (selectedHouseholdId == null)
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              margin: const EdgeInsets.only(top: 16),
-                              decoration: BoxDecoration(
-                                color: errorColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: errorColor.withOpacity(0.5)),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.warning_amber_rounded, color: errorColor, size: 20),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      noHouseholdsExistAtAll
-                                          ? 'Create or join a household first to add items.'
-                                          : 'No household is currently selected. Please select one from the main screen.',
-                                      style: TextStyle(color: errorColor),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else
-                            const SizedBox(height: 16),
-                          TextFormField(
-                            controller: priceController,
-                            style: TextStyle(color: textColor),
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: InputDecoration(
-                              labelText: 'Price',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
-                              prefixIcon: Icon(Icons.attach_money_outlined, color: primaryColor.withOpacity(0.8)),
-                              labelStyle: TextStyle(color: subtitleColor),
-                              filled: true,
-                              fillColor: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
-                            ),
-                            validator: (v) {
-                              if (v == null || v.trim().isEmpty) return 'Price is required';
-                              if (double.tryParse(v.trim()) == null) return 'Invalid price';
-                              if (double.parse(v.trim()) < 0) return 'Price cannot be negative';
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: photoUrlController,
-                            style: TextStyle(color: textColor),
-                            keyboardType: TextInputType.url,
-                            decoration: InputDecoration(
-                              labelText: 'Item Photo URL (Optional)',
-                              hintText: 'e.g., https://example.com/image.jpg',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
-                              prefixIcon: Icon(Icons.link_outlined, color: primaryColor.withOpacity(0.8)),
-                              labelStyle: TextStyle(color: subtitleColor),
-                              filled: true,
-                              fillColor: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
-                            ),
-                            validator: (value) {
-                              if (value != null && value.trim().isNotEmpty) {
-                                final uri = Uri.tryParse(value.trim());
-                                if (uri == null || !uri.isAbsolute || !(uri.scheme == 'http' || uri.scheme == 'https')) {
-                                  return 'Please enter a valid HTTP/HTTPS URL';
-                                }
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          InkWell(
-                            onTap: () async {
-                              final DateTime? picked = await showDatePicker(
-                                context: dialogContext,
-                                initialDate: selectedExpirationDate ?? DateTime.now(),
-                                firstDate: DateTime(2000),
-                                lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
-                                builder: (pickerContext, child) {
-                                  return Theme(
-                                    data: Theme.of(pickerContext).copyWith(
-                                      colorScheme: Theme.of(pickerContext).colorScheme.copyWith(
-                                            primary: primaryColor,
-                                            onPrimary: Colors.white,
-                                            surface: backgroundColor,
-                                            onSurface: textColor,
+                  content: SizedBox( // Constrain the width of the dialog content
+                    width: MediaQuery.of(dialogItselfContext).size.width * 0.9,
+                    child: SingleChildScrollView(
+                      child: Form(
+                        key: formKey,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Image preview if URL is provided
+                            if (initialPhotoUrl != null && initialPhotoUrl.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16.0),
+                                child: Center(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8.0),
+                                    child: Image.network(
+                                      initialPhotoUrl,
+                                      height: 150,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (context, error, stackTrace) => 
+                                          Container(
+                                            height: 120,
+                                            width: 120,
+                                            alignment: Alignment.center,
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey[200],
+                                              borderRadius: BorderRadius.circular(8.0),
+                                            ),
+                                            child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
                                           ),
-                                      dialogBackgroundColor: backgroundColor,
+                                      loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+                                        if (loadingProgress == null) return child;
+                                        return SizedBox(
+                                          height: 120,
+                                          width: 120,
+                                          child: Center(
+                                            child: CircularProgressIndicator(
+                                              value: loadingProgress.expectedTotalBytes != null
+                                                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                                  : null,
+                                            ),
+                                          ),
+                                        );
+                                      },
                                     ),
-                                    child: child!,
-                                  );
-                                },
-                              );
-                              if (picked != null) {
-                                stfSetState(() {
-                                  selectedExpirationDate = picked;
-                                });
-                              }
-                            },
-                            borderRadius: BorderRadius.circular(12.0),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 16.0),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: subtitleColor ?? Colors.grey),
-                                borderRadius: BorderRadius.circular(12.0),
-                                color: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    selectedExpirationDate == null
-                                        ? 'Select Expiration Date (Optional)'
-                                        : 'Expires: ${DateFormat.yMd().format(selectedExpirationDate!)}',
-                                    style: TextStyle(color: textColor),
                                   ),
-                                  Icon(Icons.calendar_today_outlined, color: primaryColor.withOpacity(0.8)),
-                                ],
+                                ),
+                              ),
+                            
+                            TextFormField(
+                              controller: itemNameController,
+                              style: TextStyle(color: textColor),
+                              decoration: InputDecoration(
+                                labelText: 'Item Name',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
+                                prefixIcon: Icon(Icons.label_outline, color: primaryColor.withOpacity(0.8)),
+                                labelStyle: TextStyle(color: subtitleColor),
+                                filled: true,
+                                fillColor: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
+                              ),
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) return 'Item name is required';
+                                if (v.trim().length < 2) return 'Name must be at least 2 characters';
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            DropdownButtonFormField<String>(
+                              decoration: InputDecoration(
+                                labelText: 'Category',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
+                                prefixIcon: Icon(Icons.category_outlined, color: primaryColor.withOpacity(0.8)),
+                                labelStyle: TextStyle(color: subtitleColor),
+                                filled: true,
+                                fillColor: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
+                              ),
+                              dropdownColor: backgroundColor,
+                              style: TextStyle(color: textColor),
+                              value: selectedCategoryDialog,
+                              items: _dialogCategories.map((String category) {
+                                return DropdownMenuItem<String>(value: category, child: Text(category));
+                              }).toList(),
+                              onChanged: (String? newValue) {
+                                stfSetState(() {
+                                  selectedCategoryDialog = newValue;
+                                });
+                              },
+                              validator: (v) => v == null ? 'Please select a category' : null,
+                            ),
+                            if (selectedHouseholdId == null)
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                margin: const EdgeInsets.only(top: 16),
+                                decoration: BoxDecoration(
+                                  color: errorColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: errorColor.withOpacity(0.5)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.warning_amber_rounded, color: errorColor, size: 20),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        noHouseholdsExistAtAll
+                                            ? 'Create or join a household first to add items.'
+                                            : 'No household is currently selected. Please select one from the main screen.',
+                                        style: TextStyle(color: errorColor),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else
+                              const SizedBox(height: 16),
+                            TextFormField(
+                              controller: priceController,
+                              style: TextStyle(color: textColor),
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: InputDecoration(
+                                labelText: 'Price',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
+                                prefixIcon: Icon(Icons.attach_money_outlined, color: primaryColor.withOpacity(0.8)),
+                                labelStyle: TextStyle(color: subtitleColor),
+                                filled: true,
+                                fillColor: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
+                              ),
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) return 'Price is required';
+                                if (double.tryParse(v.trim()) == null) return 'Invalid price';
+                                if (double.parse(v.trim()) < 0) return 'Price cannot be negative';
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: photoUrlController,
+                              style: TextStyle(color: textColor),
+                              keyboardType: TextInputType.url,
+                              decoration: InputDecoration(
+                                labelText: 'Item Photo URL (Optional)',
+                                hintText: 'e.g., https://example.com/image.jpg',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
+                                prefixIcon: Icon(Icons.link_outlined, color: primaryColor.withOpacity(0.8)),
+                                labelStyle: TextStyle(color: subtitleColor),
+                                filled: true,
+                                fillColor: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
+                              ),
+                              validator: (value) {
+                                if (value != null && value.trim().isNotEmpty) {
+                                  final uri = Uri.tryParse(value.trim());
+                                  if (uri == null || !uri.isAbsolute || !(uri.scheme == 'http' || uri.scheme == 'https')) {
+                                    return 'Please enter a valid HTTP/HTTPS URL';
+                                  }
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            InkWell(
+                              onTap: () async {
+                                final DateTime? picked = await showDatePicker(
+                                  context: dialogItselfContext, // Use context from dialog builder
+                                  initialDate: selectedExpirationDate ?? DateTime.now(),
+                                  firstDate: DateTime(2000),
+                                  lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
+                                  builder: (pickerContext, child) {
+                                    return Theme(
+                                      data: Theme.of(pickerContext).copyWith(
+                                        colorScheme: Theme.of(pickerContext).colorScheme.copyWith(
+                                              primary: primaryColor,
+                                              onPrimary: Colors.white,
+                                              surface: backgroundColor,
+                                              onSurface: textColor,
+                                            ),
+                                        dialogBackgroundColor: backgroundColor,
+                                      ),
+                                      child: child!,
+                                    );
+                                  },
+                                );
+                                if (picked != null) {
+                                  stfSetState(() {
+                                    selectedExpirationDate = picked;
+                                  });
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(12.0),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 16.0),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: subtitleColor ?? Colors.grey),
+                                  borderRadius: BorderRadius.circular(12.0),
+                                  color: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      selectedExpirationDate == null
+                                          ? 'Select Expiration Date (Optional)'
+                                          : 'Expires: ${DateFormat.yMd().format(selectedExpirationDate!)}',
+                                      style: TextStyle(color: textColor),
+                                    ),
+                                    Icon(Icons.calendar_today_outlined, color: primaryColor.withOpacity(0.8)),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.pop(dialogContext),
+                      onPressed: () => Navigator.pop(dialogItselfContext), // Use dialogItselfContext to pop
                       style: TextButton.styleFrom(foregroundColor: subtitleColor),
                       child: const Text('CANCEL'),
                     ),
@@ -323,8 +376,9 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                                 final String itemName = itemNameController.text.trim();
                                 final String itemPhoto = photoUrlController.text.trim().isEmpty ? _defaultItemPhotoUrl : photoUrlController.text.trim();
                                 final double price = double.parse(priceController.text.trim());
-                                final String? barcode = barcodeValue; // Using barcodeValue passed to the function
+                                final String? currentBarcodeValue = barcodeValue; // Use the passed barcodeValue
 
+                                bool success = false;
                                 try {
                                   final prefs = await SharedPreferences.getInstance();
                                   final token = prefs.getString('token');
@@ -342,8 +396,8 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                                   if (selectedExpirationDate != null) {
                                     requestData['expirationDate'] = selectedExpirationDate?.toIso8601String().split('T')[0];
                                   }
-                                  if (barcode != null && barcode.isNotEmpty) {
-                                    requestData['barcode'] = barcode;
+                                  if (currentBarcodeValue != null && currentBarcodeValue.isNotEmpty) {
+                                    requestData['barcode'] = currentBarcodeValue;
                                   }
 
                                   final response = await http.post(
@@ -353,7 +407,7 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                                   );
                                   _logApiResponse(response, context: 'Create and Add Item from InHouseItemsWidget');
 
-                                  if (!mounted) return;
+                                  if (!mounted) return; // Check mounted for InHouseItemsWidgetState
                                   if (response.statusCode == 201) {
                                     final responseData = jsonDecode(response.body);
                                     final dynamic createdHouseholdItemId = responseData['household_item_id']; 
@@ -369,28 +423,35 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                                         );
                                       }
                                     }
-
-                                    Navigator.pop(dialogContext);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('$itemName created and added to your household!')),
-                                    );
-                                    final currentHState = context.read<CurrentHouseholdBloc>().state;
-                                    if (currentHState is CurrentHouseholdSet) {
-                                      context.read<InHouseBloc>().add(
-                                            LoadHouseholdItems(householdId: currentHState.household.id.toString()),
-                                          );
-                                    }
+                                    success = true;
                                   } else {
                                     final errorData = jsonDecode(response.body);
-                                    ScaffoldMessenger.of(stfContext).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Failed to create item: ${errorData['message'] ?? response.reasonPhrase}'),
-                                      ),
-                                    );
+                                    if (stfContext.mounted) { // Check mounted for StatefulBuilder's context
+                                      ScaffoldMessenger.of(stfContext).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Failed to create item: ${errorData['message'] ?? response.reasonPhrase}'),
+                                        ),
+                                      );
+                                    }
                                   }
                                 } catch (e) {
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(stfContext).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+                                  if (stfContext.mounted) { // Check mounted for StatefulBuilder's context
+                                    ScaffoldMessenger.of(stfContext).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+                                  }
+                                }
+
+                                if (success && dialogItselfContext.mounted) { // Check mounted for dialogItselfContext
+                                  Navigator.pop(dialogItselfContext); // Pop the dialog
+                                  // Show SnackBar using the original parentDialogContext or InHouseItemsWidget's context
+                                  ScaffoldMessenger.of(parentDialogContext).showSnackBar(
+                                    SnackBar(content: Text('$itemName created and added to your household!')),
+                                  );
+                                  final currentHState = BlocProvider.of<CurrentHouseholdBloc>(parentDialogContext).state;
+                                  if (currentHState is CurrentHouseholdSet) {
+                                    BlocProvider.of<InHouseBloc>(parentDialogContext).add(
+                                          LoadHouseholdItems(householdId: currentHState.household.id.toString()),
+                                        );
+                                  }
                                 }
                               }
                             }

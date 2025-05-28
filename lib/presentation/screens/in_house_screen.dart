@@ -1,6 +1,7 @@
 // ignore_for_file: library_private_types_in_public_api, use_build_context_synchronously
 
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -43,14 +44,19 @@ class _InHouseScreenState extends State<InHouseScreen> {
   }
 
   void _triggerAddItemForm() {
+    // Use InHouseScreen's context when calling displayCreateAndAddItemForm
+    final BuildContext screenContext = context;
     _inHouseItemsKey.currentState?.displayCreateAndAddItemForm(
+      screenContext, // <<<< PASS SCREEN CONTEXT
       "", 
       onBarcodeFoundExistingItems: (List<Map<String, dynamic>> items) {
         if (items.isNotEmpty) {
+          // Ensure ItemSearchWidgetState's context is used if showAddToHouseholdFormPublic needs it
+          // or modify showAddToHouseholdFormPublic to also accept a context if it shows a dialog.
           _itemSearchWidgetKey.currentState?.showAddToHouseholdFormPublic(items[0]);
         } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
+          if (mounted) { // mounted refers to _InHouseScreenState
+            ScaffoldMessenger.of(screenContext).showSnackBar(
               const SnackBar(content: Text('No existing items found for the scanned barcode.')),
             );
           }
@@ -96,7 +102,7 @@ Widget build(BuildContext context) {
             onPressed: _scanBarcodeAndAddItem,
             tooltip: 'Scan Barcode & Add Item',
             heroTag: 'scanBarcodeButton',
-            child: const Icon(Icons.qr_code_scanner, color: Colors.white),
+            child: const Icon(Icons.barcode_reader, color: Colors.white),
           ),
         ],
       ),
@@ -104,20 +110,68 @@ Widget build(BuildContext context) {
   );
 }
 
-// Add this new method to scan barcode first
+  // Add this function to your InHouseScreen class
+Future<Map<String, dynamic>?> fetchProductInfoFromBarcode(String barcode) async {
+  try {
+    final response = await http.get(
+      Uri.parse('https://world.openfoodfacts.org/api/v0/product/$barcode.json'),
+    );
+
+    if (kDebugMode) {
+      print('OPEN FOOD FACTS API RESPONSE: ${response.statusCode}');
+      print('RESPONSE BODY: ${response.body.substring(0, min(500, response.body.length))}...');
+    }
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      
+      // Check if the product was found
+      if (data['status'] == 1 && data['product'] != null) {
+        final product = data['product'];
+        
+        // Extract relevant information - handle null values gracefully
+        final String productName = product['product_name'] ?? product['brands'] ?? '';
+        final String imageUrl = product['image_front_url'] ?? '';
+        
+        // You can extract additional information if needed
+        final Map<String, dynamic> productInfo = {
+          'name': productName,
+          'photoUrl': imageUrl,
+          'barcode': barcode,
+        };
+        
+        return productInfo;
+      } else {
+        if (kDebugMode) {
+          print('Product not found for barcode: $barcode');
+        }
+        return null;
+      }
+    } else {
+      if (kDebugMode) {
+        print('Failed to fetch product info: ${response.statusCode}');
+      }
+      return null;
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      print('Error fetching product info: $e');
+    }
+    return null;
+  }
+}
+
 Future<void> _scanBarcodeAndAddItem() async {
   String? barcode;
-  
+  final BuildContext screenContext = context; // Capture context before async operations
+
   try {
-    // Store a reference to the navigator before pushing the route
-    final navigator = Navigator.of(context);
-    
-    barcode = await navigator.push(
+    barcode = await Navigator.of(screenContext).push(
       MaterialPageRoute(
-        builder: (context) => Scaffold(
+        builder: (scannerContext) => Scaffold(
           appBar: AppBar(
             title: const Text('Scan Barcode'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: Theme.of(scannerContext).colorScheme.primary,
             foregroundColor: Colors.white,
           ),
           body: MobileScanner(
@@ -128,10 +182,9 @@ Future<void> _scanBarcodeAndAddItem() async {
             ),
             onDetect: (capture) {
               final List<Barcode> barcodes = capture.barcodes;
-              for (final barcode in barcodes) {
-                if (barcode.rawValue != null) {
-                  // Get the navigator from the current context, not from a closure
-                  Navigator.of(context).pop(barcode.rawValue);
+              for (final scannedBarcodeData in barcodes) {
+                if (scannedBarcodeData.rawValue != null) {
+                  Navigator.of(scannerContext).pop(scannedBarcodeData.rawValue); 
                   break;
                 }
               }
@@ -141,83 +194,57 @@ Future<void> _scanBarcodeAndAddItem() async {
       ),
     );
   } catch (e) {
-    if (kDebugMode) {
-      print('Error during barcode scanning: $e');
-    }
+    if (kDebugMode) print('Error during barcode scanning: $e');
+    if (!mounted) return; 
+    ScaffoldMessenger.of(screenContext).showSnackBar(
+      SnackBar(content: Text('Error scanning barcode: ${e.toString()}')),
+    );
     return;
   }
 
-  // Add a mounted check before processing the result
-  if (barcode != null && mounted) {
-    // Allow camera resources to be released
-    await Future.delayed(const Duration(milliseconds: 500));
-    
-    // Continue with the rest of your code to process the barcode
-    // (search by barcode, show dialogs, etc.)
-    if (mounted) {  // Add another mounted check after the delay
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Barcode detected: $barcode')),
-      );
-      
-      // Rest of your barcode processing code...
-    }
+  if (barcode == null || !mounted) {
+    if (kDebugMode && barcode == null) print('Barcode scanning cancelled or returned null.');
+    return;
   }
-    
-    // Search for the item with this barcode
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
-      if (token == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Authentication token not found')),
-        );
-        return;
-      }
+  
+  // Optional: Short delay to allow scanner route to fully dismiss. Test if needed.
+  // await Future.delayed(const Duration(milliseconds: 50));
+  // if (!mounted) return;
 
-      final response = await http.post(
-        Uri.parse('${ApiConstants.baseUrl}/api/items/search-barcode'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'barcode': barcode}),
+  ScaffoldMessenger.of(screenContext).showSnackBar(
+    SnackBar(content: Text('Processing barcode: $barcode'), duration: const Duration(seconds: 1)),
+  );
+  
+  final productInfo = await fetchProductInfoFromBarcode(barcode);
+  
+  if (kDebugMode) print('Product info fetched for $barcode: $productInfo');
+  if (!mounted) return;
+
+  if (_inHouseItemsKey.currentState == null) {
+      if (kDebugMode) print('_inHouseItemsKey.currentState is null. Cannot display form.');
+      ScaffoldMessenger.of(screenContext).showSnackBar(
+        const SnackBar(content: Text('Error: Could not prepare item form.')),
       );
-
-      if (kDebugMode) {
-        print('BARCODE SEARCH RESPONSE: ${response.statusCode}');
-        print('BARCODE SEARCH BODY: ${response.body}');
-      }
-
+      return;
+  }
+  
+  WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final items = data['items'];
-        
-        if (items.isNotEmpty) {
-          // Item exists - show the add to household form
-          _itemSearchWidgetKey.currentState?.showAddToHouseholdFormPublic(items[0]);
-        } else {
-          // No item found - show create new item form with barcode pre-filled
-          _inHouseItemsKey.currentState?.displayCreateAndAddItemForm('', 
-            barcodeValue: barcode,
-            onBarcodeFoundExistingItems: (items) {
-              if (items.isNotEmpty) {
-                _itemSearchWidgetKey.currentState?.showAddToHouseholdFormPublic(items[0]);
-              }
-            },
-          );
-        }
+      if (productInfo != null) {
+        _inHouseItemsKey.currentState?.displayCreateAndAddItemForm(
+          screenContext,
+          productInfo['name'] ?? '', 
+          barcodeValue: barcode,
+          initialPhotoUrl: productInfo['photoUrl'],
+        );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to find items by barcode: ${response.reasonPhrase}')),
+        _inHouseItemsKey.currentState?.displayCreateAndAddItemForm(
+          screenContext, 
+          '', 
+          barcodeValue: barcode,
         );
       }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error searching by barcode: ${e.toString()}')),
-      );
-    }
-  }
+    });
+}
 }

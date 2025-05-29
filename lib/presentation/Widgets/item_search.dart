@@ -2,7 +2,6 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math'; // Required for min function
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';

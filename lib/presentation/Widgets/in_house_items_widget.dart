@@ -792,7 +792,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDarkMode ? Colors.white : Colors.black87;
     final backgroundColor = isDarkMode ? const Color(0xFF1F1F1F) : Colors.white;
-    final primaryColor = Theme.of(context).colorScheme.primary; // Get primary color for the button
     final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[700]; // For cancel button
 
     showDialog(

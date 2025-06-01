@@ -240,42 +240,42 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
-  Widget _buildNavigationTile(
-    BuildContext context, {
-    required String title,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12.0),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 18.0),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor.withAlpha(200),
-          borderRadius: BorderRadius.circular(12.0),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(30),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: Theme.of(context).colorScheme.primary, size: 26),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-              ),
-            ),
-            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[600]),
-          ],
-        ),
-      ),
-    );
-  }
+  // Widget _buildNavigationTile(
+  //   BuildContext context, {
+  //   required String title,
+  //   required IconData icon,
+  //   required VoidCallback onTap,
+  // }) {
+  //   return InkWell(
+  //     onTap: onTap,
+  //     borderRadius: BorderRadius.circular(12.0),
+  //     child: Container(
+  //       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 18.0),
+  //       decoration: BoxDecoration(
+  //         color: Theme.of(context).cardColor.withAlpha(200),
+  //         borderRadius: BorderRadius.circular(12.0),
+  //         boxShadow: [
+  //           BoxShadow(
+  //             color: Colors.black.withAlpha(30),
+  //             blurRadius: 8,
+  //             offset: const Offset(0, 4),
+  //           ),
+  //         ],
+  //       ),
+  //       child: Row(
+  //         children: [
+  //           Icon(icon, color: Theme.of(context).colorScheme.primary, size: 26),
+  //           const SizedBox(width: 20),
+  //           Expanded(
+  //             child: Text(
+  //               title,
+  //               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+  //             ),
+  //           ),
+  //           Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[600]),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
 }

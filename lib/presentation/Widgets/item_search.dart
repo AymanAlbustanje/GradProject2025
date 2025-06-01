@@ -558,7 +558,6 @@ void _showCreateItemForm(String itemName, {String? barcodeValue, String? initial
   }
 
   final TextEditingController nameController = TextEditingController(text: itemName);
-  final TextEditingController categoryController = TextEditingController(); // Keep for consistency if used elsewhere
   final TextEditingController priceController = TextEditingController();
   final TextEditingController photoUrlController = TextEditingController(text: initialPhotoUrl ?? '');
   final formKey = GlobalKey<FormState>();

@@ -233,7 +233,7 @@ class StatisticsScreen extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
         children: [
-          Text('Cost Statistics', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+          Text('Overview', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
           _buildDottedDivider(context),
           const SizedBox(height: 12),
           if (noMonthlyData)
@@ -317,10 +317,10 @@ class StatisticsScreen extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 30),
-          Text('Stock Statistics', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+          Text('Stock/ Cost Statistics', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
           _buildDottedDivider(context),
-          const SizedBox(height: 16),
-          _buildChartHeader(context, 'Frequently bought Items', state.isShowingTopPurchased, (isShowingTop) {
+          const SizedBox(height: 8),
+          _buildChartHeader(context, 'Top/Least Frequently bought Items', state.isShowingTopPurchased, (isShowingTop) {
             final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
             if (currentHouseholdState is CurrentHouseholdSet && currentHouseholdState.household.id != null) {
               final householdId = currentHouseholdState.household.id.toString();
@@ -339,7 +339,7 @@ class StatisticsScreen extends StatelessWidget {
 
           // New section for Top Costing Items
           const SizedBox(height: 30),
-          _buildChartHeader(context, 'Costing Items', state.isShowingTopExpensive, (isShowingTop) {
+          _buildChartHeader(context, 'Top/Least Items by Spending amount', state.isShowingTopExpensive, (isShowingTop) {
             final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
             if (currentHouseholdState is CurrentHouseholdSet && currentHouseholdState.household.id != null) {
               final householdId = currentHouseholdState.household.id.toString();

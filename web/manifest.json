@@ -1,6 +1,6 @@
 {
-     "name": "Smart Stock",
-     "short_name": "Smart Stock",
+     "name": "ToBuy",
+     "short_name": "ToBuy",
      "start_url": ".",
      "display": "standalone",
      "background_color": "#0175C2",

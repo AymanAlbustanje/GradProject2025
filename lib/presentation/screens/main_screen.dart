@@ -11,8 +11,9 @@ import 'package:gradproject2025/presentation/screens/to_buy_screen.dart';
 import 'package:gradproject2025/data/Models/household_model.dart';
 import 'in_house_screen.dart';
 import 'statistics_screen.dart';
-import 'settings_screen.dart';
+import 'account_screen.dart';
 import 'household_screen.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class MainScreen extends StatefulWidget {
   final ValueNotifier<ThemeMode> themeNotifier;
@@ -41,7 +42,16 @@ class _MainScreenState extends State<MainScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ToBuy'),
+        title: Text(
+          'ToBuy',
+          style: GoogleFonts.lato(
+            // Example: using the Lato font
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.2,
+            color: const Color(0xFF0078D4),
+          ),
+        ),
         actions: [
           // Household Selector Dropdown
           BlocBuilder<CurrentHouseholdBloc, CurrentHouseholdState>(
@@ -51,13 +61,13 @@ class _MainScreenState extends State<MainScreen> {
                   if (householdState is HouseholdLoaded) {
                     final households = householdState.myHouseholds;
                     String currentHouseholdName = 'Select Household';
-                    
+
                     // Check if current household exists in available households
                     bool householdExists = false;
                     if (currentHouseholdState is CurrentHouseholdSet) {
                       // Verify the current household still exists in the list
                       householdExists = households.any((h) => h.id == currentHouseholdState.household.id);
-                      
+
                       if (householdExists) {
                         currentHouseholdName = currentHouseholdState.household.name;
                       } else {
@@ -67,18 +77,16 @@ class _MainScreenState extends State<MainScreen> {
                         });
                       }
                     }
-                    
+
                     return Container(
                       constraints: const BoxConstraints(maxWidth: 180),
                       margin: const EdgeInsets.only(right: 8),
                       child: PopupMenuButton<Household>(
                         tooltip: 'Switch Household',
-  position: PopupMenuPosition.under,
-  onSelected: (household) {
-    context.read<CurrentHouseholdBloc>().add(
-      SetCurrentHousehold(household: household),
-    );
-  },
+                        position: PopupMenuPosition.under,
+                        onSelected: (household) {
+                          context.read<CurrentHouseholdBloc>().add(SetCurrentHousehold(household: household));
+                        },
                         offset: const Offset(0, 8),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -89,8 +97,8 @@ class _MainScreenState extends State<MainScreen> {
                               const SizedBox(width: 4),
                               Flexible(
                                 child: Text(
-                                  households.isEmpty 
-                                      ? 'No Households' 
+                                  households.isEmpty
+                                      ? 'No Households'
                                       : (householdExists ? currentHouseholdName : 'Select Household'),
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(fontSize: 14),
@@ -103,10 +111,7 @@ class _MainScreenState extends State<MainScreen> {
                         itemBuilder: (context) {
                           if (households.isEmpty) {
                             return [
-                              const PopupMenuItem(
-                                enabled: false,
-                                child: Text('No households available'),
-                              ),
+                              const PopupMenuItem(enabled: false, child: Text('No households available')),
                               PopupMenuItem(
                                 child: TextButton.icon(
                                   icon: const Icon(Icons.add),
@@ -119,7 +124,7 @@ class _MainScreenState extends State<MainScreen> {
                               ),
                             ];
                           }
-                          
+
                           return [
                             ...households.map((household) {
                               return PopupMenuItem<Household>(
@@ -130,7 +135,7 @@ class _MainScreenState extends State<MainScreen> {
                                     const SizedBox(width: 8),
                                     Expanded(child: Text(household.name)),
                                     // Show check mark if this is the current household
-                                    if (currentHouseholdState is CurrentHouseholdSet && 
+                                    if (currentHouseholdState is CurrentHouseholdSet &&
                                         currentHouseholdState.household.id == household.id)
                                       const Icon(Icons.check, size: 18, color: Color(0xFF0078D4)),
                                   ],
@@ -158,11 +163,7 @@ class _MainScreenState extends State<MainScreen> {
                       margin: const EdgeInsets.only(right: 8),
                       child: TextButton.icon(
                         onPressed: null,
-                        icon: const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
+                        icon: const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
                         label: const Text('Loading...'),
                       ),
                     );
@@ -172,29 +173,24 @@ class _MainScreenState extends State<MainScreen> {
               );
             },
           ),
-          
+
           // More options menu
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'view') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const HouseholdScreen()),
-                );
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const HouseholdScreen()));
               }
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'view', child: Text('Manage Households')),
-            ],
+            itemBuilder: (context) => [const PopupMenuItem(value: 'view', child: Text('Manage Households'))],
           ),
         ],
       ),
-            body: BlocBuilder<CurrentHouseholdBloc, CurrentHouseholdState>(
+      body: BlocBuilder<CurrentHouseholdBloc, CurrentHouseholdState>(
         builder: (context, householdState) {
           if (_currentIndex == 3) {
-            return SettingsScreen(themeNotifier: widget.themeNotifier);
+            return AccountScreen(themeNotifier: widget.themeNotifier);
           }
-          
+
           if (householdState is CurrentHouseholdSet) {
             return _buildCurrentScreen(householdState.household.id);
           } else if (householdState is CurrentHouseholdLoading) {
@@ -206,10 +202,7 @@ class _MainScreenState extends State<MainScreen> {
                 children: [
                   const Icon(Icons.home_outlined, size: 64, color: Colors.grey),
                   const SizedBox(height: 16),
-                  const Text(
-                    'No household selected',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
+                  const Text('No household selected', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   const Text(
                     'Please select or create a household to get started',
@@ -259,9 +252,9 @@ class _MainScreenState extends State<MainScreen> {
             type: BottomNavigationBarType.fixed,
             items: const [
               BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'To Buy'),
-              BottomNavigationBarItem(icon: Icon(Icons.inventory), label: 'In House'),
+              BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'In House'),
               BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Statistics'),
-              BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+              BottomNavigationBarItem(icon: Icon(Icons.account_box_outlined), label: 'Account'),
             ],
           ),
         ),
@@ -270,28 +263,28 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildCurrentScreen(dynamic householdId) {
-  final String householdIdStr = householdId.toString();
-  
-  switch (_currentIndex) {
-    case 0:
-      return BlocProvider(
-        create: (context) => ToBuyBloc()..add(LoadToBuyItems(householdId: householdIdStr)),
-        child: const ToBuyScreen(),
-      );
-    case 1:
-      return BlocProvider(
-        create: (context) => InHouseBloc()..add(LoadHouseholdItems(householdId: householdIdStr)),
-        child: const InHouseScreen(),
-      );
-    case 2:
-      return BlocProvider(
-        create: (context) => StatisticsBloc()..add(LoadStatistics(householdId: householdIdStr)),
-        child: const StatisticsScreen(),
-      );
-    default:
-      return const SizedBox.shrink();
+    final String householdIdStr = householdId.toString();
+
+    switch (_currentIndex) {
+      case 0:
+        return BlocProvider(
+          create: (context) => ToBuyBloc()..add(LoadToBuyItems(householdId: householdIdStr)),
+          child: const ToBuyScreen(),
+        );
+      case 1:
+        return BlocProvider(
+          create: (context) => InHouseBloc()..add(LoadHouseholdItems(householdId: householdIdStr)),
+          child: const InHouseScreen(),
+        );
+      case 2:
+        return BlocProvider(
+          create: (context) => StatisticsBloc()..add(LoadStatistics(householdId: householdIdStr)),
+          child: const StatisticsScreen(),
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
-}
 
   void _showAddHouseholdDialog(BuildContext context) {
     final TextEditingController householdNameController = TextEditingController();
@@ -327,9 +320,7 @@ class _MainScreenState extends State<MainScreen> {
                       borderRadius: BorderRadius.circular(12.0),
                     ),
                     filled: true,
-                    fillColor: isDarkMode 
-                      ? Colors.grey[800]!.withOpacity(0.3) 
-                      : Colors.grey[100]!.withOpacity(0.5),
+                    fillColor: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -344,29 +335,22 @@ class _MainScreenState extends State<MainScreen> {
                 const SizedBox(height: 12),
                 const Text(
                   'Create a household to manage your items and shopping lists',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontStyle: FontStyle.italic,
-                    color: Colors.grey,
-                  ),
+                  style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('CANCEL'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
             ElevatedButton(
               onPressed: () {
                 if (formKey.currentState!.validate()) {
                   final householdName = householdNameController.text.trim();
                   context.read<HouseholdBloc>().add(CreateHousehold(name: householdName));
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Creating household "$householdName"...')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Creating household "$householdName"...')));
                 }
               },
               style: ElevatedButton.styleFrom(

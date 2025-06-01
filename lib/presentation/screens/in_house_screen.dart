@@ -8,11 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/current_household_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/in_house_bloc.dart';
-import 'package:gradproject2025/api_constants.dart';
 import 'package:http/http.dart' as http;
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-// Fix import path - use just ONE, consistent with your project structure
 import '../Widgets/item_search.dart';
 import '../Widgets/in_house_items_widget.dart';
 
@@ -47,15 +44,13 @@ class _InHouseScreenState extends State<InHouseScreen> {
     // Use InHouseScreen's context when calling displayCreateAndAddItemForm
     final BuildContext screenContext = context;
     _inHouseItemsKey.currentState?.displayCreateAndAddItemForm(
-      screenContext, // <<<< PASS SCREEN CONTEXT
-      "", 
+      screenContext,
+      "",
       onBarcodeFoundExistingItems: (List<Map<String, dynamic>> items) {
         if (items.isNotEmpty) {
-          // Ensure ItemSearchWidgetState's context is used if showAddToHouseholdFormPublic needs it
-          // or modify showAddToHouseholdFormPublic to also accept a context if it shows a dialog.
           _itemSearchWidgetKey.currentState?.showAddToHouseholdFormPublic(items[0]);
         } else {
-          if (mounted) { // mounted refers to _InHouseScreenState
+          if (mounted) {
             ScaffoldMessenger.of(screenContext).showSnackBar(
               const SnackBar(content: Text('No existing items found for the scanned barcode.')),
             );
@@ -66,185 +61,197 @@ class _InHouseScreenState extends State<InHouseScreen> {
   }
 
   @override
-Widget build(BuildContext context) {
-  final primaryColor = Theme.of(context).colorScheme.primary;
+  Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
-  return BlocListener<CurrentHouseholdBloc, CurrentHouseholdState>(
-    listener: (context, state) {
-      if (state is CurrentHouseholdSet) {
-        if (state.household.id != null) {
-          context.read<InHouseBloc>().add(LoadHouseholdItems(householdId: state.household.id.toString()));
+    return BlocListener<CurrentHouseholdBloc, CurrentHouseholdState>(
+      listener: (context, state) {
+        if (state is CurrentHouseholdSet) {
+          if (state.household.id != null) {
+            context.read<InHouseBloc>().add(LoadHouseholdItems(householdId: state.household.id.toString()));
+          }
         }
-      }
-    },
-    child: Scaffold(
-      body: Column(
-        children: [
-          ItemSearchWidget(key: _itemSearchWidgetKey), 
-          Expanded(
-            child: InHouseItemsWidget(key: _inHouseItemsKey),
-          ),
-        ],
-      ),
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          FloatingActionButton(
-            backgroundColor: primaryColor,
-            onPressed: _triggerAddItemForm,
-            tooltip: 'Add New Item',
-            heroTag: 'addItemButton',
-            child: const Icon(Icons.add, color: Colors.white),
-          ),
-          const SizedBox(height: 16), // Spacing between buttons
-          FloatingActionButton(
-            backgroundColor: primaryColor,
-            onPressed: _scanBarcodeAndAddItem,
-            tooltip: 'Scan Barcode & Add Item',
-            heroTag: 'scanBarcodeButton',
-            child: const Icon(Icons.barcode_reader, color: Colors.white),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-  // Add this function to your InHouseScreen class
-Future<Map<String, dynamic>?> fetchProductInfoFromBarcode(String barcode) async {
-  try {
-    final response = await http.get(
-      Uri.parse('https://world.openfoodfacts.org/api/v0/product/$barcode.json'),
-    );
-
-    if (kDebugMode) {
-      print('OPEN FOOD FACTS API RESPONSE: ${response.statusCode}');
-      print('RESPONSE BODY: ${response.body.substring(0, min(500, response.body.length))}...');
-    }
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      
-      // Check if the product was found
-      if (data['status'] == 1 && data['product'] != null) {
-        final product = data['product'];
-        
-        // Extract relevant information - handle null values gracefully
-        final String productName = product['product_name'] ?? product['brands'] ?? '';
-        final String imageUrl = product['image_front_url'] ?? '';
-        
-        // You can extract additional information if needed
-        final Map<String, dynamic> productInfo = {
-          'name': productName,
-          'photoUrl': imageUrl,
-          'barcode': barcode,
-        };
-        
-        return productInfo;
-      } else {
-        if (kDebugMode) {
-          print('Product not found for barcode: $barcode');
-        }
-        return null;
-      }
-    } else {
-      if (kDebugMode) {
-        print('Failed to fetch product info: ${response.statusCode}');
-      }
-      return null;
-    }
-  } catch (e) {
-    if (kDebugMode) {
-      print('Error fetching product info: $e');
-    }
-    return null;
-  }
-}
-
-Future<void> _scanBarcodeAndAddItem() async {
-  String? barcode;
-  final BuildContext screenContext = context; // Capture context before async operations
-
-  try {
-    barcode = await Navigator.of(screenContext).push(
-      MaterialPageRoute(
-        builder: (scannerContext) => Scaffold(
-          appBar: AppBar(
-            title: const Text('Scan Barcode'),
-            backgroundColor: Theme.of(scannerContext).colorScheme.primary,
-            foregroundColor: Colors.white,
-          ),
-          body: MobileScanner(
-            controller: MobileScannerController(
-              detectionSpeed: DetectionSpeed.normal,
-              facing: CameraFacing.back,
-              torchEnabled: false,
+      },
+      child: Scaffold(
+        body: Column(
+          children: [
+            ItemSearchWidget(key: _itemSearchWidgetKey),
+            Expanded(
+              child: InHouseItemsWidget(key: _inHouseItemsKey),
             ),
-            onDetect: (capture) {
-              final List<Barcode> barcodes = capture.barcodes;
-              for (final scannedBarcodeData in barcodes) {
-                if (scannedBarcodeData.rawValue != null) {
-                  Navigator.of(scannerContext).pop(scannedBarcodeData.rawValue); 
-                  break;
-                }
-              }
-            },
+          ],
+        ),
+        floatingActionButton: PopupMenuButton<String>(
+          color: Theme.of(context).cardColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          offset: const Offset(0, -120), // Adjust offset to position menu above the FAB
+          tooltip: 'Add Item Options',
+          onSelected: (String value) {
+            if (value == 'manual_add') {
+              _triggerAddItemForm();
+            } else if (value == 'scan_barcode') {
+              _scanBarcodeAndAddItem();
+            }
+          },
+          itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+            PopupMenuItem<String>(
+              value: 'manual_add',
+              child: Row(
+                children: [
+                  Icon(Icons.edit_note, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 12),
+                  const Text('Add an Item Manually'),
+                ],
+              ),
+            ),
+            PopupMenuItem<String>(
+              value: 'scan_barcode',
+              child: Row(
+                children: [
+                  Icon(Icons.barcode_reader, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 12),
+                  const Text('Scan Barcode & Add'),
+                ],
+              ),
+            ),
+          ],
+          child: FloatingActionButton(
+            backgroundColor: primaryColor,
+            onPressed: null, // Handled by PopupMenuButton
+            child: const Icon(Icons.add, color: Colors.white),
           ),
         ),
       ),
     );
-  } catch (e) {
-    if (kDebugMode) print('Error during barcode scanning: $e');
-    if (!mounted) return; 
+  }
+
+  Future<Map<String, dynamic>?> fetchProductInfoFromBarcode(String barcode) async {
+    try {
+      final response = await http.get(
+        Uri.parse('https://world.openfoodfacts.org/api/v0/product/$barcode.json'),
+      );
+
+      if (kDebugMode) {
+        print('OPEN FOOD FACTS API RESPONSE: ${response.statusCode}');
+        print('RESPONSE BODY: ${response.body.substring(0, min(500, response.body.length))}...');
+      }
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (data['status'] == 1 && data['product'] != null) {
+          final product = data['product'];
+
+          final String productName = product['product_name'] ?? product['brands'] ?? '';
+          final String imageUrl = product['image_front_url'] ?? '';
+
+          final Map<String, dynamic> productInfo = {
+            'name': productName,
+            'photoUrl': imageUrl,
+            'barcode': barcode,
+          };
+
+          return productInfo;
+        } else {
+          if (kDebugMode) {
+            print('Product not found for barcode: $barcode');
+          }
+          return null;
+        }
+      } else {
+        if (kDebugMode) {
+          print('Failed to fetch product info: ${response.statusCode}');
+        }
+        return null;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching product info: $e');
+      }
+      return null;
+    }
+  }
+
+  Future<void> _scanBarcodeAndAddItem() async {
+    String? barcode;
+    final BuildContext screenContext = context;
+
+    try {
+      barcode = await Navigator.of(screenContext).push(
+        MaterialPageRoute(
+          builder: (scannerContext) => Scaffold(
+            appBar: AppBar(
+              title: const Text('Scan Barcode'),
+              backgroundColor: Theme.of(scannerContext).colorScheme.primary,
+              foregroundColor: Colors.white,
+            ),
+            body: MobileScanner(
+              controller: MobileScannerController(
+                detectionSpeed: DetectionSpeed.normal,
+                facing: CameraFacing.back,
+                torchEnabled: false,
+              ),
+              onDetect: (capture) {
+                final List<Barcode> barcodes = capture.barcodes;
+                for (final scannedBarcodeData in barcodes) {
+                  if (scannedBarcodeData.rawValue != null) {
+                    Navigator.of(scannerContext).pop(scannedBarcodeData.rawValue);
+                    break;
+                  }
+                }
+              },
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (kDebugMode) print('Error during barcode scanning: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(screenContext).showSnackBar(
+        SnackBar(content: Text('Error scanning barcode: ${e.toString()}')),
+      );
+      return;
+    }
+
+    if (barcode == null || !mounted) {
+      if (kDebugMode && barcode == null) print('Barcode scanning cancelled or returned null.');
+      return;
+    }
+
     ScaffoldMessenger.of(screenContext).showSnackBar(
-      SnackBar(content: Text('Error scanning barcode: ${e.toString()}')),
+      SnackBar(content: Text('Processing barcode: $barcode'), duration: const Duration(seconds: 1)),
     );
-    return;
-  }
 
-  if (barcode == null || !mounted) {
-    if (kDebugMode && barcode == null) print('Barcode scanning cancelled or returned null.');
-    return;
-  }
-  
-  // Optional: Short delay to allow scanner route to fully dismiss. Test if needed.
-  // await Future.delayed(const Duration(milliseconds: 50));
-  // if (!mounted) return;
+    final productInfo = await fetchProductInfoFromBarcode(barcode);
 
-  ScaffoldMessenger.of(screenContext).showSnackBar(
-    SnackBar(content: Text('Processing barcode: $barcode'), duration: const Duration(seconds: 1)),
-  );
-  
-  final productInfo = await fetchProductInfoFromBarcode(barcode);
-  
-  if (kDebugMode) print('Product info fetched for $barcode: $productInfo');
-  if (!mounted) return;
+    if (kDebugMode) print('Product info fetched for $barcode: $productInfo');
+    if (!mounted) return;
 
-  if (_inHouseItemsKey.currentState == null) {
+    if (_inHouseItemsKey.currentState == null) {
       if (kDebugMode) print('_inHouseItemsKey.currentState is null. Cannot display form.');
       ScaffoldMessenger.of(screenContext).showSnackBar(
         const SnackBar(content: Text('Error: Could not prepare item form.')),
       );
       return;
-  }
-  
-  WidgetsBinding.instance.addPostFrameCallback((_) {
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
       if (productInfo != null) {
         _inHouseItemsKey.currentState?.displayCreateAndAddItemForm(
           screenContext,
-          productInfo['name'] ?? '', 
+          productInfo['name'] ?? '',
           barcodeValue: barcode,
           initialPhotoUrl: productInfo['photoUrl'],
         );
       } else {
         _inHouseItemsKey.currentState?.displayCreateAndAddItemForm(
-          screenContext, 
-          '', 
+          screenContext,
+          '',
           barcodeValue: barcode,
         );
       }
     });
-}
+  }
 }

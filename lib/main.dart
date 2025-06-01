@@ -35,7 +35,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.dark);
+    final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
 
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
@@ -49,7 +49,7 @@ class MyApp extends StatelessWidget {
           ],
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
-            title: 'ToBuy App', // You can change this title
+            title: 'ToBuy', // You can change this title
             theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(
                 seedColor: const Color(0xFF0078D4), // Example seed color

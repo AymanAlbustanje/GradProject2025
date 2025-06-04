@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -30,7 +30,6 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    // Load households when the screen initializes
     context.read<HouseholdBloc>().add(LoadHouseholds());
   }
 
@@ -45,7 +44,6 @@ class _MainScreenState extends State<MainScreen> {
         title: Text(
           'ToBuy',
           style: GoogleFonts.lato(
-            // Example: using the Lato font
             fontSize: 22,
             fontWeight: FontWeight.w600,
             letterSpacing: 1.2,
@@ -53,7 +51,6 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ),
         actions: [
-          // Household Selector Dropdown
           BlocBuilder<CurrentHouseholdBloc, CurrentHouseholdState>(
             builder: (context, currentHouseholdState) {
               return BlocBuilder<HouseholdBloc, HouseholdState>(
@@ -62,16 +59,13 @@ class _MainScreenState extends State<MainScreen> {
                     final households = householdState.myHouseholds;
                     String currentHouseholdName = 'Select Household';
 
-                    // Check if current household exists in available households
                     bool householdExists = false;
                     if (currentHouseholdState is CurrentHouseholdSet) {
-                      // Verify the current household still exists in the list
                       householdExists = households.any((h) => h.id == currentHouseholdState.household.id);
 
                       if (householdExists) {
                         currentHouseholdName = currentHouseholdState.household.name;
                       } else {
-                        // Clear current household if it no longer exists
                         Future.microtask(() {
                           context.read<CurrentHouseholdBloc>().add(ClearCurrentHousehold());
                         });
@@ -134,7 +128,6 @@ class _MainScreenState extends State<MainScreen> {
                                     const Icon(Icons.home, size: 18),
                                     const SizedBox(width: 8),
                                     Expanded(child: Text(household.name)),
-                                    // Show check mark if this is the current household
                                     if (currentHouseholdState is CurrentHouseholdSet &&
                                         currentHouseholdState.household.id == household.id)
                                       const Icon(Icons.check, size: 18, color: Color(0xFF0078D4)),
@@ -174,7 +167,6 @@ class _MainScreenState extends State<MainScreen> {
             },
           ),
 
-          // More options menu
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'view') {
@@ -312,7 +304,6 @@ class _MainScreenState extends State<MainScreen> {
                   controller: householdNameController,
                   decoration: InputDecoration(
                     labelText: 'Household Name',
-                    //hintText: 'Enter a name for your household',
                     prefixIcon: Icon(Icons.group_outlined, color: primaryColor.withOpacity(0.8)),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
                     focusedBorder: OutlineInputBorder(

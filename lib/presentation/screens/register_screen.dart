@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:gradproject2025/api_constants.dart';
@@ -19,10 +21,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final nameController = TextEditingController();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
-  
-  // Error states for form fields
+
   String? emailError;
-  
+
   @override
   void dispose() {
     nameController.dispose();
@@ -30,13 +31,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     passwordController.dispose();
     super.dispose();
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => RegisterBloc(
-        registerService: RegisterService(baseUrl: ApiConstants.baseUrl),
-      ),
+      create: (context) => RegisterBloc(registerService: RegisterService(baseUrl: ApiConstants.baseUrl)),
       child: Scaffold(
         appBar: AppBar(
           elevation: 0,
@@ -49,37 +48,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => VerificationScreen(
-                    email: state.email,
-                    themeNotifier: widget.themeNotifier,
-                  ),
+                  builder: (context) => VerificationScreen(email: state.email, themeNotifier: widget.themeNotifier),
                 ),
               );
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Registration successful! Please verify your email.')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Registration successful! Please verify your email.')));
             } else if (state is RegisterFailure) {
-              String errorMessage = state.error.toLowerCase(); // Convert to lowercase for easier comparison
-              
-              // Print error for debugging
+              String errorMessage = state.error.toLowerCase();
+
               print("Registration error: ${state.error}");
-              
-              // FIRST check specifically for "email already in use"
+
               if (errorMessage.contains("email already in use")) {
                 print("Found 'email already in use' in error message");
-                
-                // Use a post-frame callback to ensure the state update happens after the build
+
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   setState(() {
                     emailError = 'This email is already in use';
                   });
-                  // Force form validation to show the error
                   formKey.currentState?.validate();
                 });
-              }
-              // Then check for other variations
-              else if (errorMessage.contains('already') && 
-                  (errorMessage.contains('email') || errorMessage.contains('registered') || errorMessage.contains('exists'))) {
+              } else if (errorMessage.contains('already') &&
+                  (errorMessage.contains('email') ||
+                      errorMessage.contains('registered') ||
+                      errorMessage.contains('exists'))) {
                 setState(() {
                   emailError = 'This email is already registered';
                 });
@@ -95,14 +87,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 });
                 formKey.currentState?.validate();
               } else {
-                // For other errors, show a snackbar
                 if (errorMessage.contains('validation')) {
                   errorMessage = 'Please ensure all fields are valid and try again.';
                 }
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(errorMessage),
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                ));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(errorMessage), backgroundColor: Theme.of(context).colorScheme.error),
+                );
               }
             }
           },
@@ -120,10 +110,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Image.asset(
-                        'assets/images/1.png',
-                        height: 160,
-                      ),
+                      Image.asset('assets/images/1.png', height: 160),
                       const SizedBox(height: 30),
                       Text(
                         'Create an Account!',
@@ -169,7 +156,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           labelText: 'Email',
                           prefixIcon: const Icon(Icons.email),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
-                          // Add error border when there's a server-side error
                           errorBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12.0),
                             borderSide: BorderSide(color: Theme.of(context).colorScheme.error, width: 2),
@@ -180,12 +166,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                         validator: (value) {
-                          // First check if there's a server-side error
                           if (emailError != null) {
-                            return emailError; // Return server-side error
+                            return emailError;
                           }
-                          
-                          // Then perform client-side validation
+
                           if (value == null || value.isEmpty) {
                             return 'Please enter your email';
                           }
@@ -195,7 +179,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           }
                           return null;
                         },
-                        // Clear server-side error when user starts typing
                         onChanged: (value) {
                           if (emailError != null) {
                             setState(() {
@@ -226,44 +209,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       const SizedBox(height: 30),
                       ElevatedButton(
-                        onPressed: state is RegisterLoading 
-                            ? null // Disable button during loading
-                            : () {
-                                // Clear any previous server-side errors
-                                setState(() {
-                                  emailError = null;
-                                });
-                                
-                                // Validate all form fields before submitting
-                                if (formKey.currentState!.validate()) {
-                                  final name = nameController.text.trim();
-                                  final email = emailController.text.trim();
-                                  final password = passwordController.text.trim();
-                                  context.read<RegisterBloc>().add(
-                                        RegisterSubmitted(
-                                          name: name,
-                                          email: email,
-                                          password: password,
-                                        ),
-                                      );
-                                }
-                              },
+                        onPressed:
+                            state is RegisterLoading
+                                ? null
+                                : () {
+                                  setState(() {
+                                    emailError = null;
+                                  });
+
+                                  if (formKey.currentState!.validate()) {
+                                    final name = nameController.text.trim();
+                                    final email = emailController.text.trim();
+                                    final password = passwordController.text.trim();
+                                    context.read<RegisterBloc>().add(
+                                      RegisterSubmitted(name: name, email: email, password: password),
+                                    );
+                                  }
+                                },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Theme.of(context).colorScheme.primary,
                           padding: const EdgeInsets.symmetric(vertical: 16.0),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
                           foregroundColor: Colors.white,
                         ),
-                        child: state is RegisterLoading 
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('Sign Up', style: TextStyle(fontSize: 18)),
+                        child:
+                            state is RegisterLoading
+                                ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                )
+                                : const Text('Sign Up', style: TextStyle(fontSize: 18)),
                       ),
                       const SizedBox(height: 20),
                       TextButton(
@@ -271,7 +247,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           Navigator.pop(context);
                         },
                         child: Text(
-                          'Already have an account? Log In', 
+                          'Already have an account? Log In',
                           style: TextStyle(color: Theme.of(context).colorScheme.primary),
                         ),
                       ),

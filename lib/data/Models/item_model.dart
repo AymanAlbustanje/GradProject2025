@@ -1,14 +1,14 @@
 class Item {
-  final String? id; // household_item_id
-  final String name; // item_name
-  final String? photoUrl; // item_photo from items table
-  final int? itemId; // item_id
-  final String? location; // location
-  final double? price; // price
-  final DateTime? expirationDate; // expiration_date
-  final int? purchaseCounter; // purchase_counter
-  final double? totalPurchasePrice; // total_purchase_price
-  final String? category; // category from items table
+  final String? id;
+  final String name;
+  final String? photoUrl;
+  final int? itemId;
+  final String? location;
+  final double? price;
+  final DateTime? expirationDate;
+  final int? purchaseCounter;
+  final double? totalPurchasePrice;
+  final String? category;
 
   Item({
     this.id,
@@ -24,7 +24,6 @@ class Item {
   });
 
   factory Item.fromJson(Map<String, dynamic> json) {
-    // Get photo URL from item_photo field
     String? photoUrl = json['item_photo']?.toString();
 
     return Item(
@@ -34,13 +33,13 @@ class Item {
       itemId: json['item_id'] as int?,
       location: json['location'] as String?,
       price: json['price'] != null ? double.tryParse(json['price'].toString()) : null,
-      expirationDate: json['expiration_date'] != null && json['expiration_date'].toString().isNotEmpty
-          ? DateTime.tryParse(json['expiration_date'].toString())
-          : null,
+      expirationDate:
+          json['expiration_date'] != null && json['expiration_date'].toString().isNotEmpty
+              ? DateTime.tryParse(json['expiration_date'].toString())
+              : null,
       purchaseCounter: json['purchase_counter'] as int?,
-      totalPurchasePrice: json['total_purchase_price'] != null 
-          ? double.tryParse(json['total_purchase_price'].toString()) 
-          : null,
+      totalPurchasePrice:
+          json['total_purchase_price'] != null ? double.tryParse(json['total_purchase_price'].toString()) : null,
       category: json['category'] as String?,
     );
   }

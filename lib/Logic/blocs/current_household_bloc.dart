@@ -48,12 +48,10 @@ class CurrentHouseholdNotSet extends CurrentHouseholdState {}
 // Bloc
 class CurrentHouseholdBloc extends Bloc<CurrentHouseholdEvent, CurrentHouseholdState> {
   CurrentHouseholdBloc() : super(CurrentHouseholdInitial()) {
-    // KEEP ONLY ONE handler for SetCurrentHousehold
     on<SetCurrentHousehold>((event, emit) async {
       emit(CurrentHouseholdLoading());
       try {
         final prefs = await SharedPreferences.getInstance();
-        // Use the household's toJson method
         await prefs.setString('currentHousehold', json.encode(event.household.toJson()));
         emit(CurrentHouseholdSet(household: event.household));
       } catch (e) {
@@ -71,7 +69,6 @@ class CurrentHouseholdBloc extends Bloc<CurrentHouseholdEvent, CurrentHouseholdS
         await prefs.remove('currentHousehold');
         emit(CurrentHouseholdNotSet());
       } catch (e) {
-        // Keep the current state
       }
     });
     
@@ -88,9 +85,8 @@ class CurrentHouseholdBloc extends Bloc<CurrentHouseholdEvent, CurrentHouseholdS
       
       final Map<String, dynamic> householdMap = json.decode(householdJson);
       
-      // Keep the ID in its original form without type conversion
       final household = Household(
-        id: householdMap['id'], // Keep as-is (could be int or String)
+        id: householdMap['id'],
         name: householdMap['name'],
         inviteCode: householdMap['inviteCode'] ?? householdMap['invite_code'],
         createdAt: householdMap['created_at'] != null ? 

@@ -1,4 +1,5 @@
-// ignore_for_file: use_build_context_synchronously, deprecated_member_use, library_private_types_in_public_api, control_flow_in_finally
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/current_household_bloc.dart';
@@ -55,38 +56,8 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
     }
   }
 
-  // Future<String?> _scanBarcode(BuildContext context) async {
-  //   return await Navigator.of(context).push(
-  //     MaterialPageRoute(
-  //       builder: (context) => Scaffold(
-  //         appBar: AppBar(
-  //           title: const Text('Scan Barcode'),
-  //           backgroundColor: Theme.of(context).colorScheme.primary,
-  //           foregroundColor: Colors.white,
-  //         ),
-  //         body: MobileScanner(
-  //           controller: MobileScannerController(
-  //             detectionSpeed: DetectionSpeed.normal,
-  //             facing: CameraFacing.back,
-  //             torchEnabled: false,
-  //           ),
-  //           onDetect: (capture) {
-  //             final List<Barcode> barcodes = capture.barcodes;
-  //             for (final barcode in barcodes) {
-  //               if (barcode.rawValue != null) {
-  //                 Navigator.of(context).pop(barcode.rawValue);
-  //                 break;
-  //               }
-  //             }
-  //           },
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
-
   void displayCreateAndAddItemForm(
-    BuildContext parentDialogContext, // <<<< ADD THIS PARAMETER
+    BuildContext parentDialogContext,
     String itemNameFromSearch, {
     String? barcodeValue,
     String? initialPhotoUrl,
@@ -101,7 +72,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
 
     final TextEditingController itemNameController = TextEditingController(text: itemNameFromSearch);
     final TextEditingController priceController = TextEditingController();
-    // final TextEditingController barcodeController = TextEditingController(text: barcodeValue ?? ''); // Not used in form fields directly, barcodeValue is used for submission
     final TextEditingController photoUrlController = TextEditingController(text: initialPhotoUrl ?? '');
     final formKey = GlobalKey<FormState>();
     DateTime? selectedExpirationDate;
@@ -109,16 +79,14 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
     String? selectedCategoryDialog;
     bool isSubmitting = false;
 
-    // Use the context of InHouseItemsWidget to read from Bloc initially
     final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
     if (currentHouseholdState is CurrentHouseholdSet) {
       selectedHouseholdId = currentHouseholdState.household.id;
     }
 
     showDialog(
-      context: parentDialogContext, // <<<< USE THE PASSED CONTEXT HERE
+      context: parentDialogContext,
       builder: (dialogItselfContext) {
-        // This context is for the AlertDialog's builder
         final isDarkMode = Theme.of(dialogItselfContext).brightness == Brightness.dark;
         final primaryColor = Theme.of(dialogItselfContext).colorScheme.primary;
         final errorColor = Theme.of(dialogItselfContext).colorScheme.error;
@@ -128,7 +96,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
 
         return StatefulBuilder(
           builder: (stfContext, stfSetState) {
-            // Use blocContext from the widget's own context for BlocBuilder if needed for household list
             return BlocBuilder<HouseholdBloc, HouseholdState>(
               bloc: BlocProvider.of<HouseholdBloc>(context)..add(LoadHouseholds()),
               builder: (blocContext, householdState) {
@@ -151,7 +118,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                     ],
                   ),
                   content: SizedBox(
-                    // Constrain the width of the dialog content
                     width: MediaQuery.of(dialogItselfContext).size.width * 0.9,
                     child: SingleChildScrollView(
                       child: Form(
@@ -160,7 +126,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Image preview if URL is provided
                             if (initialPhotoUrl != null && initialPhotoUrl.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 16.0),
@@ -220,7 +185,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                                     isDarkMode
                                         ? Colors.grey[800]!.withOpacity(0.3)
                                         : Colors.grey[100]!.withOpacity(0.5),
-                                // Add red asterisk to label for required fields
                                 suffixText: ' *',
                                 suffixStyle: TextStyle(
                                   color: Theme.of(dialogItselfContext).colorScheme.error,
@@ -232,7 +196,7 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                                 if (v.trim().length < 2) return 'Name must be at least 2 characters';
                                 return null;
                               },
-                              autovalidateMode: AutovalidateMode.onUserInteraction, // Validate as user types
+                              autovalidateMode: AutovalidateMode.onUserInteraction,
                             ),
                             const SizedBox(height: 16),
                             DropdownButtonFormField<String>(
@@ -309,7 +273,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                               ),
                               validator: (v) {
                                 if (v == null || v.trim().isEmpty) return 'Price is required';
-                                // Try to parse as double and validate
                                 try {
                                   final price = double.parse(v.trim());
                                   if (price < 0) return 'Price cannot be negative';
@@ -354,7 +317,7 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                             InkWell(
                               onTap: () async {
                                 final DateTime? picked = await showDatePicker(
-                                  context: dialogItselfContext, // Use context from dialog builder
+                                  context: dialogItselfContext,
                                   initialDate: selectedExpirationDate ?? DateTime.now(),
                                   firstDate: DateTime(2000),
                                   lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
@@ -367,7 +330,7 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                                           surface: backgroundColor,
                                           onSurface: textColor,
                                         ),
-                                        dialogBackgroundColor: backgroundColor,
+                                        dialogTheme: DialogThemeData(backgroundColor: backgroundColor),
                                       ),
                                       child: child!,
                                     );
@@ -411,7 +374,7 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                   ),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.pop(dialogItselfContext), // Use dialogItselfContext to pop
+                      onPressed: () => Navigator.pop(dialogItselfContext),
                       style: TextButton.styleFrom(foregroundColor: subtitleColor),
                       child: const Text('CANCEL'),
                     ),
@@ -424,7 +387,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                               ? null
                               : () async {
                                 if (formKey.currentState!.validate()) {
-                                  // Set submitting state
                                   stfSetState(() {
                                     isSubmitting = true;
                                   });
@@ -481,10 +443,25 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
 
                                     if (!mounted) return;
 
-                                    // For testing purposes - ignore error responses and treat all requests as successful
-                                    // This bypasses any duplicate validation
+                                    if (response.statusCode == 409 || response.statusCode == 400) {
+                                      final responseData = jsonDecode(response.body);
+                                      String errorMessage = responseData['message'] ?? 'Error creating item';
+
+                                      if (errorMessage.contains('already exists in the household')) {
+                                        if (dialogItselfContext.mounted) {
+                                          Navigator.pop(dialogItselfContext);
+                                          ScaffoldMessenger.of(parentDialogContext).showSnackBar(
+                                            SnackBar(
+                                              content: Text('$itemName already exists in this household'),
+                                              backgroundColor: Colors.orange,
+                                            ),
+                                          );
+                                        }
+                                        return;
+                                      }
+                                    }
                                     if (dialogItselfContext.mounted) {
-                                      Navigator.pop(dialogItselfContext); // Pop the dialog regardless of response
+                                      Navigator.pop(dialogItselfContext);
 
                                       // Always show success message
                                       ScaffoldMessenger.of(parentDialogContext).showSnackBar(
@@ -501,14 +478,13 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                                       }
                                     }
                                   } catch (e) {
-                                    // Even for exceptions, just close the dialog and show success for testing
                                     if (dialogItselfContext.mounted) {
                                       Navigator.pop(dialogItselfContext);
-
-                                      // Show success message anyway for testing
-                                      final String itemName = itemNameController.text.trim();
                                       ScaffoldMessenger.of(parentDialogContext).showSnackBar(
-                                        SnackBar(content: Text('$itemName created and added to your household!')),
+                                        SnackBar(
+                                          content: Text('Error creating item: ${e.toString()}'),
+                                          backgroundColor: Colors.red,
+                                        ),
                                       );
                                     }
                                   }
@@ -927,20 +903,20 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       TextFormField(
-  controller: nameController,
-  style: TextStyle(color: textColor),
-  decoration: InputDecoration(
-    labelText: 'Item Name',
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
-    prefixIcon: Icon(Icons.label_outline, color: primaryColor.withOpacity(0.8)),
-    labelStyle: TextStyle(color: subtitleColor),
-  ),
-  validator: (v) {
-    if (v == null || v.trim().isEmpty) return 'Item name is required';
-    if (v.trim().length < 2) return 'Name must be at least 2 characters';
-    return null;
-  },
-),
+                        controller: nameController,
+                        style: TextStyle(color: textColor),
+                        decoration: InputDecoration(
+                          labelText: 'Item Name',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
+                          prefixIcon: Icon(Icons.label_outline, color: primaryColor.withOpacity(0.8)),
+                          labelStyle: TextStyle(color: subtitleColor),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Item name is required';
+                          if (v.trim().length < 2) return 'Name must be at least 2 characters';
+                          return null;
+                        },
+                      ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
                         value: selectedCategory,
@@ -1008,7 +984,7 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                                     surface: backgroundColor,
                                     onSurface: textColor,
                                   ),
-                                  dialogBackgroundColor: backgroundColor,
+                                  dialogTheme: DialogThemeData(backgroundColor: backgroundColor),
                                 ),
                                 child: child!,
                               );
@@ -1052,8 +1028,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                   onPressed: () {
                     if (formKey.currentState!.validate() && selectedCategory != null) {
                       Navigator.pop(dialogContext);
-
-                      // For testing purposes - always consider updates successful
                       try {
                         _updateItem(
                           context,
@@ -1063,18 +1037,14 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                           price: double.parse(priceController.text.trim()),
                           photoUrl: photoUrlController.text.trim().isEmpty ? null : photoUrlController.text.trim(),
                           expirationDate: selectedExpirationDate,
-                          testMode: true, // Add this parameter to indicate test mode
                         );
                       } catch (e) {
-                        // Just log the error for testing but still show success
                         if (kDebugMode) {
-                          print("Error in update flow (test mode): $e");
+                          print("Error in update flow: $e");
                         }
-
-                        // Show success message anyway
                         ScaffoldMessenger.of(
                           context,
-                        ).showSnackBar(SnackBar(content: Text('"${item.name}" has been updated')));
+                        ).showSnackBar(SnackBar(content: Text('Error processing update: ${e.toString()}')));
                       }
                     }
                   },
@@ -1097,7 +1067,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
     required double price,
     String? photoUrl,
     DateTime? expirationDate,
-    bool testMode = false, // Add testMode parameter with default false
   }) async {
     if (item.id == null) {
       ScaffoldMessenger.of(
@@ -1153,7 +1122,7 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
       if (!context.mounted) return;
 
       // For testing purposes - always consider it successful
-      if (testMode || response.statusCode == 200) {
+      if (response.statusCode == 200) {
         if (expirationDate != null) {
           _notificationService.scheduleSimpleExpirationNotification(
             id: itemIdInt,
@@ -1172,7 +1141,7 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
         }
       } else {
         // Only show actual error in non-test mode
-        if (!testMode) {
+        if (!kDebugMode) {
           final errorData = jsonDecode(response.body);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Failed to update item: ${errorData['message'] ?? response.reasonPhrase}')),
@@ -1183,7 +1152,7 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
       if (!context.mounted) return;
 
       // In test mode, show success message even for errors
-      if (testMode) {
+      if (kDebugMode) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('"${item.name}" has been updated')));
 
         // Still try to refresh the items list

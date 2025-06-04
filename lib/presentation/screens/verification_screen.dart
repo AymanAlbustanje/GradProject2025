@@ -14,28 +14,22 @@ class VerificationScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => VerificationBloc(
-        verificationService: VerificationService(baseUrl: ApiConstants.baseUrl),
-      ),
+      create: (context) => VerificationBloc(verificationService: VerificationService(baseUrl: ApiConstants.baseUrl)),
       child: Scaffold(
         body: BlocConsumer<VerificationBloc, VerificationState>(
           listener: (context, state) {
             if (state is VerificationSuccess) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Email verified successfully!')),
-              );
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email verified successfully!')));
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => LoginScreen(themeNotifier: themeNotifier),
-                ),
+                MaterialPageRoute(builder: (context) => LoginScreen(themeNotifier: themeNotifier)),
               );
             } else if (state is VerificationFailure) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.error)));
             } else if (state is ResendCodeSuccess) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Verification code resent successfully!')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Verification code resent successfully!')));
             } else if (state is ResendCodeFailure) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.error)));
             }
@@ -88,13 +82,11 @@ class VerificationScreen extends StatelessWidget {
                       onPressed: () {
                         final code = codeController.text.trim();
                         if (code.isNotEmpty) {
-                          context.read<VerificationBloc>().add(
-                                VerifyEmail(email: email, code: code),
-                              );
+                          context.read<VerificationBloc>().add(VerifyEmail(email: email, code: code));
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please enter the verification code.')),
-                          );
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(const SnackBar(content: Text('Please enter the verification code')));
                         }
                       },
                       style: ElevatedButton.styleFrom(

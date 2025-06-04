@@ -12,7 +12,6 @@ import 'dart:math' as math;
 class StatisticsScreen extends StatelessWidget {
   const StatisticsScreen({super.key});
 
-  // Define base accent colors - these might need slight adjustments for dark mode if they clash
   static const Color baseMediumBlue = Color(0xFF0078D4);
   static const Color baseLightBlue = Color(0xFF4CA6E5);
   static const Color baseDarkBlue = Color(0xFF005B9F);
@@ -66,12 +65,6 @@ class StatisticsScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: theme.colorScheme.background,
-      // appBar: AppBar(
-      //   title: Text('Statistics', style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold)),
-      //   backgroundColor: theme.colorScheme.surface,
-      //   elevation: 0.5,
-      //   iconTheme: IconThemeData(color: theme.colorScheme.onSurfaceVariant),
-      // ),
       body: BlocBuilder<StatisticsBloc, StatisticsState>(
         builder: (context, state) {
           if (state is StatisticsLoading || state is StatisticsInitial) {
@@ -337,7 +330,6 @@ class StatisticsScreen extends StatelessWidget {
           else
             _buildTopItemsBarChart(context, state.topPurchasedItems, isDarkMode),
 
-          // New section for Top Costing Items
           const SizedBox(height: 30),
           _buildChartHeader(context, 'Top/Least Items by Spending amount', state.isShowingTopExpensive, (isShowingTop) {
             final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
@@ -368,7 +360,6 @@ class StatisticsScreen extends StatelessWidget {
   ) {
     final theme = Theme.of(context);
     final chartItems = items.take(4).toList();
-    // Use different colors from the purchase quantity chart to visually distinguish them
     final List<Color> barColors =
         [
           Colors.teal[300]!,
@@ -413,12 +404,11 @@ class StatisticsScreen extends StatelessWidget {
                     getTitlesWidget: (value, meta) {
                       final index = value.toInt();
                       if (index < 0 || index >= chartItems.length) return const SizedBox.shrink();
-                      // Display the purchase price instead of letter
                       final val = _parseNum(chartItems[index]['total_purchase_price']);
                       return Padding(
                         padding: const EdgeInsets.only(top: 5.0),
                         child: Text(
-                          currencyFormat.format(val), // Use currency format for cost values
+                          currencyFormat.format(val),
                           style: TextStyle(color: theme.hintColor, fontSize: 12, fontWeight: FontWeight.w500),
                         ),
                       );
@@ -506,7 +496,7 @@ class StatisticsScreen extends StatelessWidget {
           baseBarColorYellow,
           baseBarColorPurpleAccent,
           baseBarColorBlue,
-        ].map((c) => isDarkMode ? c.withOpacity(0.85) : c).toList(); // Slightly adjust for dark mode
+        ].map((c) => isDarkMode ? c.withOpacity(0.85) : c).toList();
 
     final List<String> itemLetters = ['a', 'b', 'c', 'd'];
 
@@ -544,7 +534,6 @@ class StatisticsScreen extends StatelessWidget {
                     getTitlesWidget: (value, meta) {
                       final index = value.toInt();
                       if (index < 0 || index >= chartItems.length) return const SizedBox.shrink();
-                      // Display the purchase counter value instead of letter
                       final val = _parseNum(chartItems[index]['purchase_counter']).toInt();
                       return Padding(
                         padding: const EdgeInsets.only(top: 5.0),

@@ -14,7 +14,6 @@ class ToBuyService {
     return prefs.getString('token');
   }
 
-  // Get all "to_buy" items for a household
   Future<List<Item>> getToBuyItems(dynamic householdId) async {
     final token = await _getToken();
     if (token == null || token.isEmpty) {
@@ -22,7 +21,6 @@ class ToBuyService {
     }
 
     try {
-      // Convert householdId to String if it's an int
       final String householdIdStr = householdId is int ? householdId.toString() : householdId;
 
       final response = await http.get(
@@ -55,7 +53,6 @@ class ToBuyService {
     }
   }
 
-  // Move an item from in-house to to-buy
   Future<bool> moveItemToBuy({required dynamic householdItemId, required dynamic householdId}) async {
     final token = await _getToken();
     if (token == null || token.isEmpty) {
@@ -63,7 +60,6 @@ class ToBuyService {
     }
 
     try {
-      // Handle different types by converting to integers for the API
       final int itemIdInt = householdItemId is String ? int.parse(householdItemId) : householdItemId;
       final int householdIdInt = householdId is String ? int.parse(householdId) : householdId;
 
@@ -92,7 +88,6 @@ class ToBuyService {
     }
   }
 
-  // Move an item from to-buy back to in-house
   Future<bool> moveItemToHouse({
     required int householdItemId,
     required dynamic householdId,
@@ -106,14 +101,12 @@ class ToBuyService {
         return false;
       }
 
-      // Prepare request body
       final Map<String, dynamic> requestBody = {
         'householdItemId': householdItemId,
         'householdId': householdId,
         'price': price,
       };
 
-      // Add expiration date if provided
       if (expirationDate != null) {
         requestBody['expirationDate'] = expirationDate.toIso8601String().split('T')[0];
       }
@@ -136,8 +129,4 @@ class ToBuyService {
       return false;
     }
   }
-
-  // For future implementation:
-  // 1. deleteItem method to call the delete API
-  // 2. updateItem method to call the update API
 }

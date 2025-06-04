@@ -1,10 +1,11 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../Logic/blocs/household_bloc.dart';
 import '../../Logic/blocs/current_household_bloc.dart';
-// Ensure Household model is imported
 
 class HouseholdScreen extends StatelessWidget {
   const HouseholdScreen({super.key});
@@ -13,19 +14,16 @@ class HouseholdScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final TextEditingController inviteCodeController = TextEditingController();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = Theme.of(context).colorScheme.primary; // Use theme's primary color
+    final primaryColor = Theme.of(context).colorScheme.primary;
     final cardColor = Theme.of(context).cardColor;
     final textColor = isDarkMode ? Colors.white : Colors.black87;
-    final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[600];
+    final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[700];
 
     return BlocProvider(
       create: (context) => HouseholdBloc()..add(LoadHouseholds()),
       child: Scaffold(
         appBar: AppBar(
-          title: Text(
-            'Households',
-            style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
-          ),
+          title: Text('Households', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
           backgroundColor: Colors.transparent,
           elevation: 0,
           iconTheme: IconThemeData(color: textColor),
@@ -33,15 +31,13 @@ class HouseholdScreen extends StatelessWidget {
         body: BlocConsumer<HouseholdBloc, HouseholdState>(
           listener: (context, state) {
             if (state is HouseholdError) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.error), backgroundColor: Colors.redAccent),
-              );
-            } else if (state is HouseholdLoaded && state.joinSuccess == true) { // Explicitly check for true
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(state.error), backgroundColor: Colors.redAccent));
+            } else if (state is HouseholdLoaded && state.joinSuccess == true) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Successfully joined household!'), backgroundColor: Colors.green),
               );
-              // Optionally clear the flag after showing snackbar
-              // context.read<HouseholdBloc>().add(ResetJoinSuccessFlag()); // You'd need to add this event/state
             }
           },
           builder: (context, state) {
@@ -51,10 +47,7 @@ class HouseholdScreen extends StatelessWidget {
               return ListView(
                 padding: const EdgeInsets.all(16.0),
                 children: [
-                  Text(
-                    'My Households',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor),
-                  ),
+                  Text('My Households', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
                   const SizedBox(height: 12),
                   if (state.myHouseholds.isEmpty)
                     Padding(
@@ -75,10 +68,7 @@ class HouseholdScreen extends StatelessWidget {
                         elevation: 1,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(
-                            color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
-                            width: 0.5,
-                          ),
+                          side: BorderSide(color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!, width: 0.5),
                         ),
                         child: Column(
                           children: [
@@ -103,8 +93,8 @@ class HouseholdScreen extends StatelessWidget {
                                           print('Opening household: ${household.name}');
                                         }
                                         context.read<CurrentHouseholdBloc>().add(
-                                              SetCurrentHousehold(household: household),
-                                            );
+                                          SetCurrentHousehold(household: household),
+                                        );
                                         Navigator.pop(context);
                                       },
                                       icon: const Icon(Icons.visibility_outlined, size: 18),
@@ -120,17 +110,18 @@ class HouseholdScreen extends StatelessWidget {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: ElevatedButton.icon(
-                                      onPressed: household.inviteCode != null ? () {
-                                        Clipboard.setData(
-                                          ClipboardData(text: household.inviteCode!),
-                                        );
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text('Invite code for "${household.name}" copied!'),
-                                            duration: const Duration(seconds: 2),
-                                          ),
-                                        );
-                                      } : null, // Disable if no invite code
+                                      onPressed:
+                                          household.inviteCode != null
+                                              ? () {
+                                                Clipboard.setData(ClipboardData(text: household.inviteCode!));
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text('Invite code for "${household.name}" copied!'),
+                                                    duration: const Duration(seconds: 2),
+                                                  ),
+                                                );
+                                              }
+                                              : null,
                                       icon: const Icon(Icons.copy_outlined, size: 18),
                                       label: const Text('Copy Code'),
                                       style: ElevatedButton.styleFrom(
@@ -195,26 +186,27 @@ class HouseholdScreen extends StatelessWidget {
                                 backgroundColor: primaryColor,
                                 foregroundColor: Colors.white,
                               ),
-                              onPressed: state is HouseholdLoading // Check specific loading for join if available
-                                  ? null
-                                  : () {
-                                      final inviteCode = inviteCodeController.text.trim();
-                                      if (inviteCode.isNotEmpty) {
-                                        context.read<HouseholdBloc>().add(JoinHousehold(inviteCode: inviteCode));
-                                        // inviteCodeController.clear(); // Clear only on success or if desired
-                                      } else {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Please enter an invitation code')),
-                                        );
-                                      }
-                                    },
-                              icon: state is HouseholdLoading // Check specific loading for join
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                    )
-                                  : const Icon(Icons.login_outlined),
+                              onPressed:
+                                  state is HouseholdLoading
+                                      ? null
+                                      : () {
+                                        final inviteCode = inviteCodeController.text.trim();
+                                        if (inviteCode.isNotEmpty) {
+                                          context.read<HouseholdBloc>().add(JoinHousehold(inviteCode: inviteCode));
+                                        } else {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Please enter an invitation code')),
+                                          );
+                                        }
+                                      },
+                              icon:
+                                  state is HouseholdLoading
+                                      ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                      )
+                                      : const Icon(Icons.login_outlined),
                               label: Text(state is HouseholdLoading ? 'Joining...' : 'Join Household'),
                             ),
                           ),
@@ -260,7 +252,6 @@ class HouseholdScreen extends StatelessWidget {
                 ),
               );
             }
-            // Fallback for any other unhandled state (e.g., initial)
             return const Center(child: Text('Loading households...'));
           },
         ),

@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, empty_catches
 
 import 'dart:convert';
 
@@ -15,6 +15,8 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+enum ListViewMode { currentHousehold, allHouseholds }
+
 class ToBuyScreen extends StatefulWidget {
   const ToBuyScreen({super.key});
 
@@ -23,88 +25,332 @@ class ToBuyScreen extends StatefulWidget {
 }
 
 class _ToBuyScreenState extends State<ToBuyScreen> {
+  static const String _selectedViewModeKey = 'toBuyScreen_selectedViewMode';
+  ListViewMode _currentView = ListViewMode.currentHousehold; // Default
+  Map<String, List<Item>> _groupedAllHouseholdsItems = {};
+  bool _isLoadingAllItems = false;
+
   @override
   void initState() {
     super.initState();
-    _loadToBuyItems();
+    _loadPreferencesAndInitialData();
   }
 
-  void _loadToBuyItems() {
+  Future<void> _loadPreferencesAndInitialData() async {
+    await _loadSelectedViewPreference();
+    if (_currentView == ListViewMode.allHouseholds) {
+      await _loadAllHouseholdsItems();
+    } else {
+      _loadToBuyItems(); 
+    }
+  }
+
+  Future<void> _loadSelectedViewPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedViewIndex = prefs.getInt(_selectedViewModeKey);
+    if (savedViewIndex != null && mounted) {
+      setState(() {
+        _currentView = ListViewMode.values[savedViewIndex];
+      });
+    }
+  }
+
+  Future<void> _saveSelectedViewPreference(ListViewMode viewMode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_selectedViewModeKey, viewMode.index);
+  }
+
+  Future<void> _loadToBuyItems() async {
     final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
     if (currentHouseholdState is CurrentHouseholdSet) {
-      // Ensure householdId is a String before passing to the event
       final String householdIdStr = currentHouseholdState.household.id.toString();
       context.read<ToBuyBloc>().add(LoadToBuyItems(householdId: householdIdStr));
     }
   }
 
+  Future<void> _loadAllHouseholdsItems() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingAllItems = true;
+      _groupedAllHouseholdsItems = {};
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      if (token == null) throw Exception('Token not found');
+
+      final userId = prefs.getString('userId');
+      if (kDebugMode) {
+        print('Loading all households items with userId: "$userId"');
+      }
+
+      if (userId == null || userId.isEmpty) {
+        setState(() {
+          _isLoadingAllItems = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('User ID not found. Please log in again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/api/household-items/all-to-buy-itmes-in-all-households-user-in?userId=$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (kDebugMode) {
+        print('===== GET ALL HOUSEHOLDS ITEMS RESPONSE =====');
+        print('Status code: ${response.statusCode}');
+        print('Body: ${response.body}');
+      }
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        final List<dynamic> rawItemsData = responseData['items'] ?? [];
+        
+        Map<String, List<Item>> tempGroupedItems = {};
+        for (var rawItem in rawItemsData) {
+          final item = Item(
+            id: rawItem['id']?.toString(),
+            name: rawItem['item_name'] ?? 'Unknown Item',
+            photoUrl: rawItem['item_photo'],
+            category: rawItem['category'],
+            location: 'to_buy',
+            price: rawItem['price'] != null ? double.tryParse(rawItem['price'].toString()) : null,
+          );
+          final String householdName = rawItem['household_name'] ?? 'Unknown Household';
+          if (tempGroupedItems.containsKey(householdName)) {
+            tempGroupedItems[householdName]!.add(item);
+          } else {
+            tempGroupedItems[householdName] = [item];
+          }
+        }
+
+        setState(() {
+          _groupedAllHouseholdsItems = tempGroupedItems;
+          _isLoadingAllItems = false;
+        });
+
+      } else {
+        String errorMessage = 'Failed to load items from all households';
+        try {
+          final errorData = jsonDecode(response.body);
+          if (errorData['message'] != null) {
+            errorMessage = errorData['message'];
+            if (errorData['errors'] != null && errorData['errors'] is List && errorData['errors'].isNotEmpty) {
+              final firstError = errorData['errors'][0];
+              if (firstError['field'] == 'userId' && firstError['message'] != null) {
+                errorMessage = 'User ID error: ${firstError['message']}';
+              }
+            }
+          }
+        } catch (e) {
+        }
+        setState(() {
+          _isLoadingAllItems = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+          );
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingAllItems = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading all households items: ${e.toString()}'), backgroundColor: Colors.red),
+      );
+    }
+  }
+  
+  Widget _buildEmptyStateWidget({required String title, required String message, required IconData icon, Color? iconColor}) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.grey[400] : Colors.grey[600];
+    final titleColor = isDarkMode ? Colors.grey[300] : Colors.grey[700];
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(icon, size: 80, color: iconColor ?? (isDarkMode ? Colors.grey[600] : Colors.grey[400])),
+            const SizedBox(height: 24),
+            Text(
+              title,
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: titleColor),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              style: TextStyle(fontSize: 15, color: textColor),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
+    final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[700];
+    final scaffoldBackgroundColor = Theme.of(context).scaffoldBackgroundColor;
 
     return Scaffold(
+      backgroundColor: scaffoldBackgroundColor,
       body: Column(
         children: [
-          // Header
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-            alignment: Alignment.centerLeft,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 16.0, bottom:12.0),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                )
+              ]
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Your Shopping List',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).textTheme.titleLarge?.color,
-                  ),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: textColor,
+                      ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Text(
+                      'Show items for:',
+                      style: TextStyle(fontSize: 14, color: subtitleColor, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isDarkMode ? Colors.grey[800]?.withOpacity(0.7) : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<ListViewMode>(
+                            value: _currentView,
+                            isExpanded: true,
+                            dropdownColor: isDarkMode ? Colors.grey[850] : Colors.white,
+                            icon: Icon(Icons.arrow_drop_down_rounded, color: subtitleColor, size: 28),
+                            style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w500),
+                            onChanged: (ListViewMode? newValue) async {
+                              if (newValue != null) {
+                                setState(() {
+                                  _currentView = newValue;
+                                });
+                                await _saveSelectedViewPreference(newValue); // Save preference
+                                if (newValue == ListViewMode.allHouseholds) {
+                                  _loadAllHouseholdsItems();
+                                } else {
+                                  _loadToBuyItems();
+                                }
+                              }
+                            },
+                            items: [
+                              DropdownMenuItem(
+                                value: ListViewMode.currentHousehold,
+                                child: Text('Current Household', style: TextStyle(color: textColor)),
+                              ),
+                              DropdownMenuItem(
+                                value: ListViewMode.allHouseholds,
+                                child: Text('All My Households', style: TextStyle(color: textColor)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-
-          // To Buy Items List
           Expanded(
-            child: BlocConsumer<ToBuyBloc, ToBuyState>(
-              listener: (context, state) {
-                // Listen for state changes to handle errors if needed
-                if (state is ToBuyError) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Error: ${state.error}'), backgroundColor: Colors.red));
+            child: RefreshIndicator(
+              onRefresh: () async {
+                if (_currentView == ListViewMode.currentHousehold) {
+                  await _loadToBuyItems();
+                } else {
+                  await _loadAllHouseholdsItems();
                 }
               },
-              builder: (context, state) {
-                if (state is ToBuyLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                } else if (state is ToBuyLoaded) {
-                  final items = state.items;
-                  return items.isEmpty ? _buildEmptyState() : _buildItemsList(items, isDarkMode);
-                } else if (state is ToBuyError) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Error: ${state.error}',
-                          style: const TextStyle(color: Colors.red, fontSize: 18),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton.icon(
-                          onPressed: _loadToBuyItems,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Try Again'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
+              color: primaryColor,
+              backgroundColor: Theme.of(context).cardColor,
+              child: _currentView == ListViewMode.currentHousehold
+                  ? BlocConsumer<ToBuyBloc, ToBuyState>(
+                      listener: (context, state) {
+                        if (state is ToBuyError) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: ${state.error}'), backgroundColor: Colors.red),
+                          );
+                        }
+                      },
+                      builder: (context, state) {
+                        if (state is ToBuyLoading) {
+                          return const Center(child: CircularProgressIndicator());
+                        } else if (state is ToBuyLoaded) {
+                          final items = state.items;
+                          return items.isEmpty
+                              ? _buildEmptyStateWidget(
+                                title: 'Shopping List Empty',
+                                message: 'Items you need to buy for this household will appear here.',
+                                icon: Icons.add_shopping_cart_rounded,
+                               )
+                              : _buildItemsList(items, isDarkMode, textColor, subtitleColor ?? Colors.grey, primaryColor);
+                        } else if (state is ToBuyError) {
+                           return _buildEmptyStateWidget(
+                                title: 'Error Loading Items',
+                                message: 'Could not load shopping list: ${state.error}. Pull down to try again.',
+                                icon: Icons.error_outline_rounded,
+                                iconColor: Colors.red[300],
+                               );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    )
+                  : _isLoadingAllItems
+                      ? const Center(child: CircularProgressIndicator())
+                      : _groupedAllHouseholdsItems.isEmpty
+                          ? _buildEmptyStateWidget(
+                                title: 'No Items Across Households',
+                                message: 'Shopping lists for all your households are currently empty.',
+                                icon: Icons.search_off_rounded,
+                            )
+                          : _buildAllHouseholdsItemsList(_groupedAllHouseholdsItems, isDarkMode, textColor, subtitleColor ?? Colors.grey),
             ),
           ),
         ],
@@ -112,59 +358,78 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.shopping_cart_outlined, size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text('Your shopping list is empty', style: TextStyle(fontSize: 18, color: Colors.grey[600])),
-          const SizedBox(height: 8),
-          Text('Items moved from In-House will appear here', style: TextStyle(fontSize: 14, color: Colors.grey[500])),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildItemsList(List<Item> items, bool isDarkMode) {
+  Widget _buildItemsList(List<Item> items, bool isDarkMode, Color textColor, Color subtitleColor, Color primaryColor) {
     return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
         return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
-          elevation: 0.5,
+          margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+          elevation: isDarkMode ? 1.0 : 2.0,
+          shadowColor: isDarkMode ? Colors.black.withOpacity(0.5) : Colors.grey.withOpacity(0.3),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12.0),
-            side: BorderSide(color: isDarkMode ? Colors.grey[800]! : Colors.grey[300]!, width: 0.5),
           ),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 15.0),
-            title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w500)),
-            leading:
-                item.photoUrl != null && item.photoUrl!.isNotEmpty
-                    ? ClipRRect(
-                      borderRadius: BorderRadius.circular(8.0),
-                      child: Image.network(
-                        item.photoUrl!,
-                        width: 50,
-                        height: 50,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.shopping_bag, size: 40),
-                      ),
-                    )
-                    : const Icon(Icons.shopping_bag, size: 40),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+            leading: item.photoUrl != null && item.photoUrl!.isNotEmpty
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8.0),
+                    child: Image.network(
+                      item.photoUrl!,
+                      width: 55,
+                      height: 55,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          Container(width: 55, height: 55, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(8.0)), child: Icon(Icons.shopping_bag_outlined, size: 30, color: Colors.grey[600])),
+                    ),
+                  )
+                : Container(width: 55, height: 55, decoration: BoxDecoration(color: isDarkMode ? Colors.grey[700] : Colors.grey[200], borderRadius: BorderRadius.circular(8.0)), child: Icon(Icons.shopping_bag_outlined, size: 30, color: isDarkMode ? Colors.grey[300] : Colors.grey[600])),
+            title: Text(
+              item.name,
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16.5, color: textColor),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: item.category != null && item.category!.isNotEmpty
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text(
+                      item.category!,
+                      style: TextStyle(color: subtitleColor, fontSize: 13.5),
+                    ),
+                  )
+                : null,
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.add_home_outlined, color: Colors.green),
+                  icon: Icon(Icons.add_home_work_outlined, color: Colors.green[600], size: 26),
                   tooltip: 'Move to In-House',
                   onPressed: () => _showMoveToHouseDialog(context, item),
                 ),
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert),
+                  icon: Icon(Icons.more_vert, color: subtitleColor), // Standard icon
+                  tooltip: "More options",
+                  color: Theme.of(context).cardColor, // Use card color for menu background
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), // Standard shape
+                  itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                    const PopupMenuItem<String>(
+                      value: 'update',
+                      child: ListTile( // Use ListTile for standard appearance
+                        leading: Icon(Icons.edit),
+                        title: Text('Edit'),
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'delete',
+                      child: ListTile( // Use ListTile for standard appearance
+                        leading: Icon(Icons.delete, color: Colors.red),
+                        title: Text('Delete', style: TextStyle(color: Colors.red)),
+                      ),
+                    ),
+                  ],
                   onSelected: (value) {
                     if (value == 'update') {
                       _showUpdateItemDialog(context, item);
@@ -172,23 +437,6 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
                       _showDeleteConfirmDialog(context, item);
                     }
                   },
-                  itemBuilder:
-                      (BuildContext context) => [
-                        const PopupMenuItem<String>(
-                          value: 'update',
-                          child: Row(children: [Icon(Icons.edit, size: 20), SizedBox(width: 8), Text('Edit')]),
-                        ),
-                        const PopupMenuItem<String>(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete, color: Colors.red, size: 20),
-                              SizedBox(width: 8),
-                              Text('Delete', style: TextStyle(color: Colors.red)),
-                            ],
-                          ),
-                        ),
-                      ],
                 ),
               ],
             ),
@@ -198,14 +446,92 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
     );
   }
 
+  Widget _buildAllHouseholdsItemsList(Map<String, List<Item>> groupedItems, bool isDarkMode, Color textColor, Color subtitleColor) {
+    final householdNames = groupedItems.keys.toList();
+    householdNames.sort();
+
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      itemCount: householdNames.length,
+      itemBuilder: (context, sectionIndex) {
+        final householdName = householdNames[sectionIndex];
+        final itemsInHousehold = groupedItems[householdName]!;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
+              child: Text(
+                householdName,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: textColor.withOpacity(0.9),
+                ),
+              ),
+            ),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: itemsInHousehold.length,
+              itemBuilder: (context, itemIndex) {
+                final item = itemsInHousehold[itemIndex];
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 5.0),
+                  elevation: isDarkMode ? 0.8 : 1.5,
+                  shadowColor: isDarkMode ? Colors.black.withOpacity(0.4) : Colors.grey.withOpacity(0.25),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+                    leading: item.photoUrl != null && item.photoUrl!.isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8.0),
+                            child: Image.network(
+                              item.photoUrl!,
+                              width: 50,
+                              height: 50,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(width: 50, height: 50, decoration: BoxDecoration(color: isDarkMode ? Colors.grey[700] : Colors.grey[200], borderRadius: BorderRadius.circular(8.0)), child: Icon(Icons.broken_image_outlined, size: 28, color: subtitleColor)),
+                            ),
+                          )
+                        : Container(width: 50, height: 50, decoration: BoxDecoration(color: isDarkMode ? Colors.grey[700] : Colors.grey[200], borderRadius: BorderRadius.circular(8.0)), child: Icon(Icons.shopping_bag_outlined, size: 28, color: isDarkMode ? Colors.grey[300] : Colors.grey[600])),
+                    title: Text(
+                      item.name,
+                      style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16, color: textColor),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: item.category != null && item.category!.isNotEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 3.0),
+                            child: Text(
+                              item.category!,
+                              style: TextStyle(color: subtitleColor, fontSize: 13),
+                            ),
+                          )
+                        : null,
+                  ),
+                );
+              },
+            ),
+            if (sectionIndex < householdNames.length - 1)
+              Divider(height: 20, thickness: 0.8, indent: 16, endIndent: 16, color: isDarkMode ? Colors.grey[800] : Colors.grey[300]),
+          ],
+        );
+      },
+    );
+  }
+
   void _showMoveToHouseDialog(BuildContext context, Item item) {
-    // Check if item ID is available
     if (item.id == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot move item - missing item ID.')));
       return;
     }
-
-    // Get current household
     final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
     if (currentHouseholdState is! CurrentHouseholdSet) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a household first.')));
@@ -213,35 +539,35 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
     }
 
     final householdId = currentHouseholdState.household.id;
-    final priceController = TextEditingController();
+    final priceController = TextEditingController(text: item.price?.toString() ?? '');
     final formKey = GlobalKey<FormState>();
-    DateTime? selectedExpirationDate;
+    DateTime? selectedExpirationDate = item.expirationDate;
 
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = Theme.of(context).colorScheme.primary;
-    final backgroundColor = isDarkMode ? const Color(0xFF1F1F1F) : Colors.white;
+    final dialogBackgroundColor = isDarkMode ? const Color(0xFF2c2c2e) : Colors.white; 
     final textColor = isDarkMode ? Colors.white : Colors.black87;
-    final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[700];
+    final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[600];
+    final inputFillColor = isDarkMode ? Colors.grey[800]!.withOpacity(0.5) : Colors.grey[100]!.withOpacity(0.7);
 
-    // Store reference to the parent/screen context
     final parentContext = context;
 
     showDialog(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (context, setStateDialog) {
             return AlertDialog(
-              backgroundColor: backgroundColor,
+              backgroundColor: dialogBackgroundColor,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
               title: Row(
                 children: [
-                  Icon(Icons.home, color: primaryColor, size: 24),
+                  Icon(Icons.add_home_work_outlined, color: primaryColor, size: 26),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'Move ${item.name} to In-House',
-                      style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 18),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -255,28 +581,27 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Purchased Item Details',
-                        style: TextStyle(color: subtitleColor, fontSize: 12, fontWeight: FontWeight.w500),
+                        'Enter purchased item details:',
+                        style: TextStyle(color: subtitleColor, fontSize: 13, fontWeight: FontWeight.w500),
                       ),
-                      const SizedBox(height: 16),
-
-                      // Price field
+                      const SizedBox(height: 20),
                       TextFormField(
                         controller: priceController,
                         style: TextStyle(color: textColor),
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         decoration: InputDecoration(
                           labelText: 'Price',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
-                          prefixIcon: Icon(Icons.attach_money, color: primaryColor.withOpacity(0.8)),
+                          hintText: '0.00',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0), borderSide: BorderSide.none),
+                          prefixIcon: Icon(Icons.attach_money_rounded, color: primaryColor.withOpacity(0.8)),
                           labelStyle: TextStyle(color: subtitleColor),
+                          hintStyle: TextStyle(color: subtitleColor?.withOpacity(0.7)),
+                          filled: true,
+                          fillColor: inputFillColor,
                           focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: primaryColor, width: 2.0),
+                            borderSide: BorderSide(color: primaryColor, width: 1.5),
                             borderRadius: BorderRadius.circular(12.0),
                           ),
-                          filled: true,
-                          fillColor:
-                              isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) return 'Please enter a price';
@@ -287,33 +612,30 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
                         },
                       ),
                       const SizedBox(height: 16),
-
-                      // Expiration date
                       InkWell(
                         onTap: () async {
                           final DateTime? picked = await showDatePicker(
                             context: dialogContext,
-                            initialDate: DateTime.now(),
-                            firstDate: DateTime.now(),
-                            lastDate: DateTime.now().add(const Duration(days: 1825)), // 5 years
+                            initialDate: selectedExpirationDate ?? DateTime.now().add(const Duration(days:1)),
+                            firstDate: DateTime.now().add(const Duration(days:1)), 
+                            lastDate: DateTime.now().add(const Duration(days: 1825)), 
                             builder: (context, child) {
                               return Theme(
                                 data: Theme.of(context).copyWith(
                                   colorScheme: Theme.of(context).colorScheme.copyWith(
-                                    primary: primaryColor,
-                                    onPrimary: Colors.white,
-                                    surface: backgroundColor,
-                                    onSurface: textColor,
-                                  ),
-                                  dialogBackgroundColor: backgroundColor,
+                                        primary: primaryColor,
+                                        onPrimary: Colors.white,
+                                        surface: dialogBackgroundColor,
+                                        onSurface: textColor,
+                                      ),
+                                  dialogBackgroundColor: dialogBackgroundColor,
                                 ),
                                 child: child!,
                               );
                             },
                           );
-
                           if (picked != null) {
-                            setState(() {
+                            setStateDialog(() {
                               selectedExpirationDate = picked;
                             });
                           }
@@ -322,13 +644,13 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 12),
                           decoration: BoxDecoration(
-                            border: Border.all(color: isDarkMode ? Colors.grey[700]! : Colors.grey[400]!),
+                            border: Border.all(color: Colors.transparent), 
                             borderRadius: BorderRadius.circular(12.0),
-                            color: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100]!.withOpacity(0.5),
+                            color: inputFillColor,
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.calendar_today, color: primaryColor.withOpacity(0.8), size: 20),
+                              Icon(Icons.calendar_today_outlined, color: primaryColor.withOpacity(0.8), size: 20),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
@@ -340,9 +662,10 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
                               ),
                               if (selectedExpirationDate != null)
                                 IconButton(
-                                  icon: Icon(Icons.clear, color: subtitleColor, size: 18),
+                                  icon: Icon(Icons.clear_rounded, color: subtitleColor, size: 20),
+                                  tooltip: "Clear date",
                                   onPressed: () {
-                                    setState(() {
+                                    setStateDialog(() {
                                       selectedExpirationDate = null;
                                     });
                                   },
@@ -355,26 +678,25 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
                   ),
                 ),
               ),
+              actionsPadding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
                   style: TextButton.styleFrom(foregroundColor: subtitleColor),
                   child: const Text('CANCEL'),
                 ),
-                ElevatedButton(
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.move_to_inbox_rounded, size: 18),
+                  label: const Text('MOVE TO IN-HOUSE'),
                   onPressed: () async {
                     if (formKey.currentState!.validate()) {
                       final price = double.parse(priceController.text.trim());
                       final toBuyService = ToBuyService(baseUrl: ApiConstants.baseUrl);
 
-                      // Show loading indicator
                       showDialog(
                         context: dialogContext,
                         barrierDismissible: false,
-                        builder:
-                            (context) => Center(
-                              child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(primaryColor)),
-                            ),
+                        builder: (context) => Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(primaryColor))),
                       );
 
                       final success = await toBuyService.moveItemToHouse(
@@ -383,44 +705,24 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
                         price: price,
                         expirationDate: selectedExpirationDate,
                       );
+                      
+                      if (dialogContext.mounted) Navigator.pop(dialogContext); 
+                      if (dialogContext.mounted) Navigator.pop(dialogContext); 
 
-                      // Close the loading indicator dialog
-                      if (dialogContext.mounted) {
-                        Navigator.pop(dialogContext);
-                      }
-
-                      // Close the main dialog
-                      if (dialogContext.mounted) {
-                        Navigator.pop(dialogContext);
-                      }
-
-                      // Only show one snackbar and refresh if successful
                       if (parentContext.mounted) {
                         if (success) {
                           ScaffoldMessenger.of(parentContext).showSnackBar(
-                            SnackBar(
-                              content: Text('${item.name} moved to in-house.'),
-                              duration: const Duration(seconds: 2),
-                            ),
+                            SnackBar(content: Text('${item.name} moved to in-house.'), duration: const Duration(seconds: 2)),
                           );
-
-                          // Use a simpler approach with the parent context
-                          Future.delayed(const Duration(milliseconds: 300), () {
+                          Future.delayed(const Duration(milliseconds: 100), () { 
                             if (parentContext.mounted) {
-                              // Force immediate refresh with the parent context
                               parentContext.read<ToBuyBloc>().add(LoadToBuyItems(householdId: householdId.toString()));
-                              parentContext.read<InHouseBloc>().add(
-                                LoadHouseholdItems(householdId: householdId.toString()),
-                              );
+                              parentContext.read<InHouseBloc>().add(LoadHouseholdItems(householdId: householdId.toString()));
                             }
                           });
                         } else {
                           ScaffoldMessenger.of(parentContext).showSnackBar(
-                            const SnackBar(
-                              content: Text('Failed to move item to in-house. Please try again.'),
-                              backgroundColor: Colors.red,
-                              duration: Duration(seconds: 3),
-                            ),
+                            const SnackBar(content: Text('Failed to move item. Please try again.'), backgroundColor: Colors.red, duration: Duration(seconds: 3)),
                           );
                         }
                       }
@@ -430,10 +732,9 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
                     backgroundColor: primaryColor,
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
-                  child: const Text('MOVE TO IN-HOUSE'),
                 ),
               ],
             );
@@ -446,47 +747,47 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
   void _showDeleteConfirmDialog(BuildContext context, Item item) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDarkMode ? Colors.white : Colors.black87;
-    final backgroundColor = isDarkMode ? const Color(0xFF1F1F1F) : Colors.white;
-    final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[700]; // Added for content text and cancel button
+    final dialogBackgroundColor = isDarkMode ? const Color(0xFF2c2c2e) : Colors.white;
+    final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[600];
+    final errorColor = Colors.red[400]!;
 
     showDialog(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor: backgroundColor,
+          backgroundColor: dialogBackgroundColor,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
           title: Row(
             children: [
-              Icon(
-                Icons.delete_outline,
-                color: Theme.of(dialogContext).colorScheme.error,
-                size: 24,
-              ), // Changed icon and color
-              const SizedBox(width: 8),
-              Text('Delete Item', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)), // Added fontWeight
+              Icon(Icons.delete_forever_outlined, color: errorColor, size: 26),
+              const SizedBox(width: 10),
+              Text('Delete Item', style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 18)),
             ],
           ),
           content: Text(
-            'Are you sure you want to delete "${item.name}" from your shopping list?',
-            style: TextStyle(color: subtitleColor), // Changed to subtitleColor for consistency
+            'Are you sure you want to permanently delete "${item.name}" from your shopping list?',
+            style: TextStyle(color: subtitleColor, fontSize: 15),
           ),
+          actionsPadding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: Text('CANCEL', style: TextStyle(color: subtitleColor)), // Styled cancel text
+              child: Text('CANCEL', style: TextStyle(color: subtitleColor, fontWeight: FontWeight.w500)),
             ),
-            ElevatedButton(
-              // Changed to ElevatedButton
+            ElevatedButton.icon(
+              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              label: const Text('DELETE'),
               onPressed: () {
                 Navigator.pop(dialogContext);
                 _deleteItem(context, item);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(dialogContext).colorScheme.error, // Use theme's error color
-                foregroundColor: Colors.white, // White text
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), // Rounded shape
+                backgroundColor: errorColor,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
-              child: const Text('DELETE'),
             ),
           ],
         );
@@ -496,18 +797,13 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
 
   Future<void> _deleteItem(BuildContext context, Item item) async {
     if (item.id == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Cannot delete item - missing item ID.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot delete item - missing item ID.')));
       return;
     }
-
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
-      if (token == null) {
-        throw Exception('Authentication token not found');
-      }
+      if (token == null) throw Exception('Authentication token not found');
 
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}/api/household-items/delete-household-item'),
@@ -520,13 +816,10 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
         print('Status code: ${response.statusCode}');
         print('Body: ${response.body}');
       }
-
       if (!context.mounted) return;
-
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${item.name} has been deleted')));
-
-        _loadToBuyItems(); // Reload the list
+        _loadToBuyItems();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to delete item')));
       }
@@ -541,37 +834,38 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
     final photoUrlController = TextEditingController(text: item.photoUrl ?? '');
     final priceController = TextEditingController(text: item.price?.toString() ?? '');
     final formKey = GlobalKey<FormState>();
-    DateTime? selectedExpirationDate = item.expirationDate;
+    DateTime? selectedExpirationDate = item.expirationDate; 
     String? selectedCategory = item.category;
 
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = Theme.of(context).colorScheme.primary;
-    final backgroundColor = isDarkMode ? const Color(0xFF1F1F1F) : Colors.white;
+    final dialogBackgroundColor = isDarkMode ? const Color(0xFF2c2c2e) : Colors.white;
     final textColor = isDarkMode ? Colors.white : Colors.black87;
-    final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[700];
+    final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[600];
+    final inputFillColor = isDarkMode ? Colors.grey[800]!.withOpacity(0.5) : Colors.grey[100]!.withOpacity(0.7);
 
     final List<String> dialogCategories = [
-      'Fruits & Vegetables',
-      'Dairy & Eggs',
-      'Meat & Seafood',
-      'Canned & Jarred',
-      'Dry Goods & Pasta',
-      'Others',
+      'Fruits & Vegetables', 'Dairy & Eggs', 'Meat & Seafood', 'Bakery & Bread',
+      'Pantry Staples', 'Snacks', 'Beverages', 'Frozen Foods', 
+      'Cleaning Supplies', 'Personal Care', 'Baby Items', 'Pet Supplies', 'Others',
     ];
+    if (selectedCategory != null && !dialogCategories.contains(selectedCategory) && selectedCategory.isNotEmpty) {
+        dialogCategories.add(selectedCategory);
+    }
 
     showDialog(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (context, setStateDialog) {
             return AlertDialog(
-              backgroundColor: backgroundColor,
+              backgroundColor: dialogBackgroundColor,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
               title: Row(
                 children: [
-                  Icon(Icons.edit, color: primaryColor, size: 24),
-                  const SizedBox(width: 8),
-                  Text('Edit Shopping Item', style: TextStyle(color: textColor)),
+                  Icon(Icons.edit_note_outlined, color: primaryColor, size: 26),
+                  const SizedBox(width: 12),
+                  Text('Edit Shopping Item', style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 18)),
                 ],
               ),
               content: SingleChildScrollView(
@@ -582,156 +876,117 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       TextFormField(
-  controller: nameController,
-  style: TextStyle(color: textColor),
-  decoration: InputDecoration(
-    labelText: 'Item Name',
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
-    prefixIcon: Icon(Icons.label_outline, color: primaryColor.withOpacity(0.8)),
-    labelStyle: TextStyle(color: subtitleColor),
-  ),
-  validator: (v) {
-    if (v == null || v.trim().isEmpty) return 'Item name is required';
-    if (v.trim().length < 2) return 'Name must be at least 2 characters';
-    return null;
-  },
-),
+                        controller: nameController,
+                        style: TextStyle(color: textColor),
+                        decoration: InputDecoration(
+                          labelText: 'Item Name',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0), borderSide: BorderSide.none),
+                          prefixIcon: Icon(Icons.label_important_outline_rounded, color: primaryColor.withOpacity(0.8)),
+                          labelStyle: TextStyle(color: subtitleColor),
+                          filled: true, fillColor: inputFillColor,
+                          focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: primaryColor, width: 1.5), borderRadius: BorderRadius.circular(12.0)),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Item name is required';
+                          if (v.trim().length < 2) return 'Name must be at least 2 characters';
+                          return null;
+                        },
+                      ),
                       const SizedBox(height: 16),
-
                       DropdownButtonFormField<String>(
                         value: selectedCategory,
                         decoration: InputDecoration(
                           labelText: 'Category',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0), borderSide: BorderSide.none),
                           prefixIcon: Icon(Icons.category_outlined, color: primaryColor.withOpacity(0.8)),
                           labelStyle: TextStyle(color: subtitleColor),
+                          filled: true, fillColor: inputFillColor,
+                          focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: primaryColor, width: 1.5), borderRadius: BorderRadius.circular(12.0)),
                         ),
-                        dropdownColor: backgroundColor,
+                        dropdownColor: dialogBackgroundColor,
                         style: TextStyle(color: textColor),
-                        items:
-                            dialogCategories.map((String category) {
-                              return DropdownMenuItem<String>(value: category, child: Text(category));
-                            }).toList(),
+                        items: dialogCategories.map((String category) {
+                          return DropdownMenuItem<String>(value: category, child: Text(category));
+                        }).toList(),
                         onChanged: (String? newValue) {
-                          setState(() {
+                          setStateDialog(() {
                             selectedCategory = newValue;
                           });
                         },
+                        validator: (v) => v == null || v.isEmpty ? 'Please select a category' : null,
                       ),
                       const SizedBox(height: 16),
-
-                      // Added Price field
                       TextFormField(
                         controller: priceController,
                         style: TextStyle(color: textColor),
-                        keyboardType: TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         decoration: InputDecoration(
                           labelText: 'Price (Optional)',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
-                          prefixIcon: Icon(Icons.attach_money_outlined, color: primaryColor.withOpacity(0.8)),
+                          hintText: '0.00',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0), borderSide: BorderSide.none),
+                          prefixIcon: Icon(Icons.attach_money_rounded, color: primaryColor.withOpacity(0.8)),
                           labelStyle: TextStyle(color: subtitleColor),
+                          hintStyle: TextStyle(color: subtitleColor?.withOpacity(0.7)),
+                          filled: true, fillColor: inputFillColor,
+                          focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: primaryColor, width: 1.5), borderRadius: BorderRadius.circular(12.0)),
                         ),
                         validator: (v) {
                           if (v != null && v.trim().isNotEmpty) {
-                            if (double.tryParse(v.trim()) == null) return 'Invalid price';
+                            if (double.tryParse(v.trim()) == null) return 'Invalid price format';
                             if (double.parse(v.trim()) < 0) return 'Price cannot be negative';
                           }
                           return null;
                         },
                       ),
                       const SizedBox(height: 16),
-
                       TextFormField(
                         controller: photoUrlController,
                         style: TextStyle(color: textColor),
                         decoration: InputDecoration(
                           labelText: 'Photo URL (Optional)',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
-                          prefixIcon: Icon(Icons.photo_outlined, color: primaryColor.withOpacity(0.8)),
+                          hintText: 'https://example.com/image.png',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0), borderSide: BorderSide.none),
+                          prefixIcon: Icon(Icons.link_rounded, color: primaryColor.withOpacity(0.8)),
                           labelStyle: TextStyle(color: subtitleColor),
+                          hintStyle: TextStyle(color: subtitleColor?.withOpacity(0.7)),
+                          filled: true, fillColor: inputFillColor,
+                          focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: primaryColor, width: 1.5), borderRadius: BorderRadius.circular(12.0)),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Added Expiration Date picker
-                      InkWell(
-                        onTap: () async {
-                          final DateTime? picked = await showDatePicker(
-                            context: dialogContext,
-                            initialDate: selectedExpirationDate ?? DateTime.now(),
-                            firstDate: DateTime.now(),
-                            lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
-                          );
-                          if (picked != null) {
-                            setState(() {
-                              selectedExpirationDate = picked;
-                            });
-                          }
+                         validator: (v) {
+                            if (v != null && v.trim().isNotEmpty) {
+                                final uri = Uri.tryParse(v.trim());
+                                if (uri == null || !uri.hasAbsolutePath || (!uri.isScheme('http') && !uri.isScheme('https'))) {
+                                    return 'Please enter a valid URL';
+                                }
+                            }
+                            return null;
                         },
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.calendar_today, color: primaryColor),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  selectedExpirationDate != null
-                                      ? 'Expires: ${DateFormat('MM/dd/yyyy').format(selectedExpirationDate!)}'
-                                      : 'Set Expiration Date (Optional)',
-                                  style: TextStyle(color: textColor),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       ),
                     ],
                   ),
                 ),
               ),
+              actionsPadding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('CANCEL')),
-                ElevatedButton(
+                TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text('CANCEL', style: TextStyle(color: subtitleColor, fontWeight: FontWeight.w500))),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.save_alt_rounded, size: 18),
+                  label: const Text('SAVE CHANGES'),
                   onPressed: () {
                     if (formKey.currentState!.validate()) {
                       Navigator.pop(dialogContext);
-
-                      // For testing purposes - always consider updates successful
-                      try {
-                        _updateItem(
-                          context,
-                          item,
-                          name: nameController.text.trim(),
-                          category: selectedCategory!,
-                          price:
-                              priceController.text.trim().isNotEmpty ? double.parse(priceController.text.trim()) : null,
-                          photoUrl: photoUrlController.text.trim().isEmpty ? null : photoUrlController.text.trim(),
-                          expirationDate: selectedExpirationDate,
-                          testMode: true, // Add testMode parameter for testing
-                        );
-                      } catch (e) {
-                        // Just log the error for testing but still show success
-                        if (kDebugMode) {
-                          print("Error in to_buy update flow (test mode): $e");
-                        }
-
-                        // Show success message anyway for testing
-                        ScaffoldMessenger.of(
-                          context,
-                        ).showSnackBar(SnackBar(content: Text('${item.name} has been updated')));
-
-                        // Refresh the items list anyway
-                        _loadToBuyItems();
-                      }
+                      _updateItem(
+                        context,
+                        item,
+                        name: nameController.text.trim(),
+                        category: selectedCategory!,
+                        price: priceController.text.trim().isNotEmpty ? double.parse(priceController.text.trim()) : null,
+                        photoUrl: photoUrlController.text.trim().isEmpty ? null : photoUrlController.text.trim(),
+                        expirationDate: selectedExpirationDate,
+                      );
                     }
                   },
-                  style: ElevatedButton.styleFrom(backgroundColor: primaryColor, foregroundColor: Colors.white),
-                  child: const Text('EDIT'),
+                  style: ElevatedButton.styleFrom(backgroundColor: primaryColor, foregroundColor: Colors.white, elevation:0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
                 ),
               ],
             );
@@ -749,40 +1004,39 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
     String? photoUrl,
     double? price,
     DateTime? expirationDate,
-    bool testMode = false, // Add testMode parameter with default false
   }) async {
     if (item.id == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Cannot update item - missing item ID.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot update item - missing item ID.')));
       return;
     }
-
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
-      if (token == null) {
-        throw Exception('Authentication token not found');
-      }
+      if (token == null) throw Exception('Authentication token not found');
 
-      // Prepare request body
       Map<String, dynamic> requestBody = {
         'householdItemId': int.parse(item.id!),
         'itemName': name,
         'category': category,
       };
-
-      if (photoUrl != null) {
+      if (photoUrl != null && photoUrl.isNotEmpty) {
         requestBody['itemPhoto'] = photoUrl;
+      } else {
+        requestBody['itemPhoto'] = null; 
       }
 
       if (price != null) {
         requestBody['price'] = price;
+      } else {
+         requestBody['price'] = null; 
       }
-
+      
       if (expirationDate != null) {
         requestBody['expirationDate'] = expirationDate.toIso8601String().split('T')[0];
+      } else {
+        // requestBody['expirationDate'] = null; 
       }
+
 
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}/api/household-items/edit-household-item'),
@@ -794,32 +1048,23 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
         print('===== UPDATE ITEM RESPONSE =====');
         print('Status code: ${response.statusCode}');
         print('Body: ${response.body}');
+        print('Request Body: ${jsonEncode(requestBody)}');
       }
-
       if (!context.mounted) return;
-
-      // For testing purposes - always consider it successful
-      if (testMode || response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${item.name} has been updated')));
-
-        _loadToBuyItems(); // Reload the list
-      } else if (!testMode) {
-        // Only show error in non-test mode
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to update item')));
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('"${item.name}" has been updated')));
+        _loadToBuyItems(); 
+        if (_currentView == ListViewMode.allHouseholds) {
+          _loadAllHouseholdsItems(); 
+        }
+      } else {
+         final errorData = jsonDecode(response.body);
+         final message = errorData['message'] ?? 'Failed to update item';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
       }
     } catch (e) {
       if (!context.mounted) return;
-
-      // In test mode, show success even for errors
-      if (testMode) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${item.name} has been updated')));
-
-        // Still try to refresh the items list
-        _loadToBuyItems();
-      } else {
-        // Normal error handling for non-test mode
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error updating item: ${e.toString()}')));
-      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error updating item: ${e.toString()}'), backgroundColor: Colors.red));
     }
   }
 }

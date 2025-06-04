@@ -24,8 +24,11 @@ class LoginService {
       await prefs.setString('username', data['user']['name'] ?? '');
       await prefs.setString('email', data['user']['email'] ?? '');
 
+      await prefs.setString('userId', data['user']['id']?.toString() ?? '');
+
       if (kDebugMode) {
         print('Saved token: ${prefs.getString('token')}');
+        print('Saved userId: ${prefs.getString('userId')}');
       }
 
       return data['user'];

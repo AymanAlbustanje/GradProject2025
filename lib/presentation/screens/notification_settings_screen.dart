@@ -12,10 +12,7 @@ class NotificationSettingsScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text(
-              'Notifications Settings Screen',
-              style: TextStyle(fontSize: 18),
-            ),
+            const Text('Notifications Settings Screen', style: TextStyle(fontSize: 18)),
             const SizedBox(height: 30),
             ElevatedButton(
               onPressed: () {
@@ -32,12 +29,12 @@ class NotificationSettingsScreen extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 final notificationService = NotificationService();
-                final DateTime expirationDate = DateTime.now().add(const Duration(days: 7)); // Example date
+                final DateTime expirationDate = DateTime.now().add(const Duration(days: 7));
                 notificationService.scheduleSimpleExpirationNotification(
-                  id: 12345, 
+                  id: 12345,
                   itemName: "Milk (Settings Test)",
                   expirationDate: expirationDate,
-                  forceShortDelayForTestButton: true, // Pass true here
+                  forceShortDelayForTestButton: true,
                 );
               },
               style: ElevatedButton.styleFrom(
@@ -56,7 +53,7 @@ class NotificationSettingsScreen extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                backgroundColor: Colors.red, 
+                backgroundColor: Colors.red,
               ),
               child: const Text('Cancel All Notifications'),
             ),

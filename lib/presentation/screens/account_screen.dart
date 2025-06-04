@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import 'package:gradproject2025/presentation/screens/notification_settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login_screen.dart'; // Import LoginScreen for logout
 
@@ -16,7 +17,6 @@ class AccountScreen extends StatefulWidget {
 class _AccountScreenState extends State<AccountScreen> {
   String username = 'Loading...';
   String email = 'Loading...';
-  // String token = ''; // Token is usually not displayed directly
 
   @override
   void initState() {
@@ -24,7 +24,7 @@ class _AccountScreenState extends State<AccountScreen> {
     _loadUserData();
   }
 
- Future<void> _loadUserData() async {
+  Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
@@ -43,7 +43,6 @@ class _AccountScreenState extends State<AccountScreen> {
         final textColor = isDarkMode ? Colors.white : Colors.black87;
         final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[700];
         final dialogBgColor = Theme.of(dialogContext).dialogBackgroundColor;
-
 
         return AlertDialog(
           backgroundColor: dialogBgColor,
@@ -86,9 +85,7 @@ class _AccountScreenState extends State<AccountScreen> {
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(
-          builder: (context) => LoginScreen(themeNotifier: widget.themeNotifier),
-        ),
+        MaterialPageRoute(builder: (context) => LoginScreen(themeNotifier: widget.themeNotifier)),
         (route) => false,
       );
     }
@@ -106,15 +103,9 @@ class _AccountScreenState extends State<AccountScreen> {
     final textColor = isDarkMode ? Colors.white : Colors.black87;
     final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[700];
 
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Your Account',
-          style: TextStyle(
-            color: textColor,
-          ),
-        ),
+        title: Text('Your Account', style: TextStyle(color: textColor)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: IconThemeData(color: textColor),
@@ -142,22 +133,11 @@ class _AccountScreenState extends State<AccountScreen> {
                 const SizedBox(height: 16),
                 Text(
                   username,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                  ),
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  email,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: subtitleColor,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+                Text(email, style: TextStyle(fontSize: 16, color: subtitleColor), textAlign: TextAlign.center),
                 const SizedBox(height: 24), // Spacer before logout button
                 SizedBox(
                   width: 150, // Make button take available width within the card
@@ -191,20 +171,15 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
           const SizedBox(height: 10),
 
-          // // Notification Settings Navigation
-          // _buildNavigationTile(
-          //   context,
-          //   title: 'Notification Settings',
-          //   icon: Icons.notifications_outlined,
-          //   onTap: () {
-          //     Navigator.push(
-          //       context,
-          //       MaterialPageRoute(
-          //         builder: (context) => const NotificationSettingsScreen(),
-          //       ),
-          //     );
-          //   },
-          // ),
+          // Notification Settings Navigation
+          _buildNavigationTile(
+            context,
+            title: 'Notification Settings',
+            icon: Icons.notifications_outlined,
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationSettingsScreen()));
+            },
+          ),
           const SizedBox(height: 20),
         ],
       ),
@@ -221,13 +196,7 @@ class _AccountScreenState extends State<AccountScreen> {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor.withAlpha(200),
         borderRadius: BorderRadius.circular(12.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(30),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withAlpha(30), blurRadius: 8, offset: const Offset(0, 4))],
       ),
       child: SwitchListTile(
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
@@ -240,42 +209,24 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
-  // Widget _buildNavigationTile(
-  //   BuildContext context, {
-  //   required String title,
-  //   required IconData icon,
-  //   required VoidCallback onTap,
-  // }) {
-  //   return InkWell(
-  //     onTap: onTap,
-  //     borderRadius: BorderRadius.circular(12.0),
-  //     child: Container(
-  //       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 18.0),
-  //       decoration: BoxDecoration(
-  //         color: Theme.of(context).cardColor.withAlpha(200),
-  //         borderRadius: BorderRadius.circular(12.0),
-  //         boxShadow: [
-  //           BoxShadow(
-  //             color: Colors.black.withAlpha(30),
-  //             blurRadius: 8,
-  //             offset: const Offset(0, 4),
-  //           ),
-  //         ],
-  //       ),
-  //       child: Row(
-  //         children: [
-  //           Icon(icon, color: Theme.of(context).colorScheme.primary, size: 26),
-  //           const SizedBox(width: 20),
-  //           Expanded(
-  //             child: Text(
-  //               title,
-  //               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-  //             ),
-  //           ),
-  //           Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[600]),
-  //         ],
-  //       ),
-  //     ),
-  //   );
-  // }
+  Widget _buildNavigationTile(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor.withAlpha(200),
+        borderRadius: BorderRadius.circular(12.0),
+        boxShadow: [BoxShadow(color: Colors.black.withAlpha(30), blurRadius: 8, offset: const Offset(0, 4))],
+      ),
+      child: ListTile(
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+        leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+        onTap: onTap,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      ),
+    );
+  }
 }

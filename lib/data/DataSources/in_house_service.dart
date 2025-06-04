@@ -6,7 +6,7 @@ import 'package:gradproject2025/data/Models/item_model.dart';
 
 class InHouseService {
   final String baseUrl;
-  final String _defaultItemPhotoUrl = 'https://i.pinimg.com/736x/82/be/d4/82bed479344270067e3d2171379949b3.jpg';
+  static const String _defaultItemPhotoUrl = 'https://i.pinimg.com/736x/82/be/d4/82bed479344270067e3d2171379949b3.jpg';
 
   InHouseService({required this.baseUrl});
 
@@ -54,7 +54,7 @@ class InHouseService {
     }
   }
 
-  Future<String?> addItem({
+  Future<String> addItem({
     required String itemName,
     String? itemPhoto,
     required String householdId,
@@ -68,7 +68,7 @@ class InHouseService {
       final token = await _getToken();
       if (token == null || token.isEmpty) {
         if (kDebugMode) print('Authentication token is missing for addItem.');
-        return null;
+        throw Exception('Authentication token not found');
       }
 
       String? formattedExpirationDate;
@@ -114,17 +114,17 @@ class InHouseService {
           return newHouseholdItemId.toString();
         } else {
           if (kDebugMode) print("Error: 'household_item_id' not found in addItem response or is null.");
-          return null;
+          throw Exception("'household_item_id' not found in response");
         }
       } else {
         if (kDebugMode) print('Failed to add item. Status: ${response.statusCode}, Body: ${response.body}');
-        return null;
+        throw Exception('Failed to add item. Status: ${response.statusCode}');
       }
     } catch (e) {
       if (kDebugMode) {
         print('Exception when adding item via service: $e');
       }
-      return null;
+      throw Exception('Failed to add item: $e');
     }
   }
 

@@ -84,7 +84,6 @@ class InHouseBloc extends Bloc<ItemEvent, ItemState> {
     on<LoadItems>((event, emit) async {
       emit(ItemLoading());
       try {
-        // Actually fetch items from database
         final items = await itemsService.getItems();
         emit(ItemLoaded(items: items));
       } catch (e) {

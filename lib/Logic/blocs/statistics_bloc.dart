@@ -69,8 +69,8 @@ class StatisticsLoaded extends StatisticsState {
   final List<Map<String, dynamic>> topExpensiveItems;
   final double totalMoneySpent;
   final String? householdIdForData;
-  final bool isShowingTopPurchased; // true for top, false for least
-  final bool isShowingTopExpensive; // true for top, false for least
+  final bool isShowingTopPurchased;
+  final bool isShowingTopExpensive;
 
   const StatisticsLoaded({
     required this.topPurchasedItems,

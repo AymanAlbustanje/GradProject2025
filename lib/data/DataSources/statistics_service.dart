@@ -13,20 +13,24 @@ class StatisticsService {
     return prefs.getString('token');
   }
 
-  Future<List<Map<String, dynamic>>> getTopPurchasedItems(String householdId) async {
+  Future<List<Map<String, dynamic>>> _fetchItemsStatistic(
+    String householdId,
+    String endpointSuffix,
+    String errorContext,
+  ) async {
     try {
       final token = await _getToken();
       if (token == null || token.isEmpty) {
-        throw Exception('Authentication token not found');
+        throw Exception('Authentication token not found for $errorContext');
       }
 
       final response = await http.get(
-        Uri.parse('$baseUrl/api/statistics/purchase_counter-top?householdId=$householdId'),
+        Uri.parse('$baseUrl/api/statistics/$endpointSuffix?householdId=$householdId'),
         headers: {'Authorization': 'Bearer $token'},
       );
 
       if (kDebugMode) {
-        print('===== GET TOP PURCHASED ITEMS RESPONSE =====');
+        print('===== GET $errorContext RESPONSE =====');
         print('Status code: ${response.statusCode}');
         print('Body: ${response.body}');
       }
@@ -38,49 +42,22 @@ class StatisticsService {
         }
         return [];
       } else {
-        throw Exception('Failed to load top purchased items');
+        throw Exception('Failed to load $errorContext. Status: ${response.statusCode}');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error fetching top purchased items: $e');
+        print('Error fetching $errorContext: $e');
       }
-      throw Exception('Failed to fetch top purchased items: $e');
+      throw Exception('Failed to fetch $errorContext: $e');
     }
   }
 
+  Future<List<Map<String, dynamic>>> getTopPurchasedItems(String householdId) async {
+    return _fetchItemsStatistic(householdId, 'purchase_counter-top', 'top purchased items');
+  }
+
   Future<List<Map<String, dynamic>>> getTopExpensiveItems(String householdId) async {
-    try {
-      final token = await _getToken();
-      if (token == null || token.isEmpty) {
-        throw Exception('Authentication token not found');
-      }
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/statistics/total_purchase_price-top?householdId=$householdId'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-
-      if (kDebugMode) {
-        print('===== GET TOP EXPENSIVE ITEMS RESPONSE =====');
-        print('Status code: ${response.statusCode}');
-        print('Body: ${response.body}');
-      }
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['items'] is List) {
-          return List<Map<String, dynamic>>.from(data['items']);
-        }
-        return [];
-      } else {
-        throw Exception('Failed to load top expensive items');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error fetching top expensive items: $e');
-      }
-      throw Exception('Failed to fetch top expensive items: $e');
-    }
+    return _fetchItemsStatistic(householdId, 'total_purchase_price-top', 'top expensive items');
   }
 
   Future<double> getTotalMoneySpent(String householdId) async {
@@ -123,72 +100,10 @@ class StatisticsService {
   }
 
   Future<List<Map<String, dynamic>>> getBottomPurchasedItems(String householdId) async {
-    try {
-      final token = await _getToken();
-      if (token == null || token.isEmpty) {
-        throw Exception('Authentication token not found');
-      }
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/statistics/purchase_counter-bottom?householdId=$householdId'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-
-      if (kDebugMode) {
-        print('===== GET BOTTOM PURCHASED ITEMS RESPONSE =====');
-        print('Status code: ${response.statusCode}');
-        print('Body: ${response.body}');
-      }
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['items'] is List) {
-          return List<Map<String, dynamic>>.from(data['items']);
-        }
-        return [];
-      } else {
-        throw Exception('Failed to load least purchased items');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error fetching least purchased items: $e');
-      }
-      throw Exception('Failed to fetch least purchased items: $e');
-    }
+    return _fetchItemsStatistic(householdId, 'purchase_counter-bottom', 'least purchased items');
   }
 
   Future<List<Map<String, dynamic>>> getBottomExpensiveItems(String householdId) async {
-    try {
-      final token = await _getToken();
-      if (token == null || token.isEmpty) {
-        throw Exception('Authentication token not found');
-      }
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/statistics/total_purchase_price-bottom?householdId=$householdId'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-
-      if (kDebugMode) {
-        print('===== GET BOTTOM EXPENSIVE ITEMS RESPONSE =====');
-        print('Status code: ${response.statusCode}');
-        print('Body: ${response.body}');
-      }
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['items'] is List) {
-          return List<Map<String, dynamic>>.from(data['items']);
-        }
-        return [];
-      } else {
-        throw Exception('Failed to load least expensive items');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error fetching least expensive items: $e');
-      }
-      throw Exception('Failed to fetch least expensive items: $e');
-    }
+    return _fetchItemsStatistic(householdId, 'total_purchase_price-bottom', 'least expensive items');
   }
 }

@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
@@ -124,7 +126,8 @@ class NotificationService {
         scheduledTZDateTime,
         platformDetails,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        matchDateTimeComponents: DateTimeComponents.time,
+        matchDateTimeComponents:
+            DateTimeComponents.dateAndTime,
         payload: 'item_id=$id',
       );
       print('NOTIFICATION SCHEDULED: "$itemName" (ID: $id) will fire at ${scheduledTZDateTime.toLocal()}');

@@ -1,8 +1,7 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously, avoid_print
 
 import 'dart:async';
 import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -109,15 +108,12 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
     }
   }
 
-  // Added fetchProductInfoFromBarcode to ItemSearchWidgetState
   Future<Map<String, dynamic>?> fetchProductInfoFromBarcode(String barcode) async {
     try {
       final response = await http.get(Uri.parse('https://world.openfoodfacts.org/api/v0/product/$barcode.json'));
 
       if (kDebugMode) {
         print('[ItemSearchWidget] OPEN FOOD FACTS API RESPONSE for $barcode: ${response.statusCode}');
-        // Guard against very long responses in debug print
-        // print('[ItemSearchWidget] RESPONSE BODY: ${response.body.substring(0, min(500, response.body.length))}...');
       }
 
       if (response.statusCode == 200) {
@@ -202,12 +198,10 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
       ),
     );
 
-    // Fetch from Open Food Facts first
     final Map<String, dynamic>? offProductInfo = await fetchProductInfoFromBarcode(scannedBarcode);
 
     if (!mounted) return;
 
-    // Then search in our backend, passing the Open Food Facts info
     await _searchByBarcode(scannedBarcode, offProductInfo: offProductInfo);
   }
 
@@ -243,7 +237,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
         final items = data['items'];
 
         if (items.isNotEmpty) {
-          // Item exists in our backend, show "Add to Household" form
           setState(() {
             _searchResults = items;
           });
@@ -251,8 +244,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
             if (mounted) showAddToHouseholdFormPublic(items[0]);
           });
         } else {
-          // Item NOT in our backend. Show "Create New Item" form,
-          // pre-filled with Open Food Facts data if available.
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               _showCreateItemForm(
@@ -267,7 +258,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
         if (kDebugMode) {
           print('[ItemSearchWidget] Backend search for barcode $barcode failed: ${response.statusCode}');
         }
-        // Even if backend search fails, if we have OFF info, offer to create.
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             _showCreateItemForm(
@@ -287,7 +277,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
       ScaffoldMessenger.of(
         currentContext,
       ).showSnackBar(SnackBar(content: Text('Error searching by barcode: ${e.toString()}')));
-      // If error during backend search, but we have OFF info, still offer to create.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _showCreateItemForm(
@@ -615,8 +604,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
         final textColor = isDarkMode ? Colors.white : Colors.black87;
         final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[700];
 
-        // Determine a width for the dialog's content area
-        final double dialogContentWidth = MediaQuery.of(dialogContext).size.width * 0.9; // 90% of screen width
+        final double dialogContentWidth = MediaQuery.of(dialogContext).size.width * 0.9;
 
         return StatefulBuilder(
           builder: (stfContext, stfSetState) {
@@ -733,7 +721,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                           onChanged: (String? newValue) {
                             stfSetState(() {
                               selectedCategoryDialog = newValue;
-                              // categoryController.text = newValue ?? ''; // Not strictly needed if only using selectedCategoryDialog
                             });
                           },
                           validator: (v) => v == null ? 'Please select a category' : null,
@@ -858,7 +845,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                   onPressed: () async {
                     if (formKey.currentState!.validate()) {
                       try {
-                        // Try to create item but for testing we'll consider it successful regardless
                         await _createNewItem(
                           name: nameController.text.trim(),
                           category: selectedCategoryDialog ?? '',
@@ -868,7 +854,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                           itemPhoto: photoUrlController.text.trim().isNotEmpty ? photoUrlController.text.trim() : null,
                         );
                       } catch (e) {
-                        // Just log the error but don't show to user for testing
                         if (kDebugMode) print("[ItemSearchWidget] Error in create item flow: $e");
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -879,8 +864,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                           );
                         }
                       }
-
-                      // For testing - always close the dialog and consider it successful
                       if (mounted && dialogContext.mounted) {
                         Navigator.pop(dialogContext);
                       }
@@ -937,11 +920,8 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
 
       _logApiResponse(response, contextMsg: 'Create new item response (ItemSearchWidget)');
 
-      // For testing purposes - ignore actual response status and treat as success
       if (!mounted) return;
 
-      // Schedule notification if expiration date was set, but only attempt if we have something
-      // that looks like an ID in the response
       if (response.statusCode == 201) {
         final responseData = jsonDecode(response.body);
         final dynamic householdItemId = responseData['household_item_id'];
@@ -961,8 +941,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
         }
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$name created and added successfully')));
       } else {
-        // Always show success message regardless of the actual response
-        // ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$name created and added successfully')));
         final responseBody = jsonDecode(response.body);
         final errorMessage = responseBody['message'] ?? 'Failed to create item. Status: ${response.statusCode}';
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage), backgroundColor: Colors.red));
@@ -970,7 +948,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
     } catch (e) {
       if (kDebugMode) print("[ItemSearchWidget] Error in _createNewItem: $e");
 
-      // For testing - show success even for errors
       if (!mounted) return;
 
       ScaffoldMessenger.of(
@@ -1045,7 +1022,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: const BorderRadius.horizontal(right: Radius.circular(24)),
-                        onTap: _startBarcodeScanning, // This now triggers the new flow
+                        onTap: _startBarcodeScanning,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16.0),
                           child: Icon(Icons.barcode_reader, color: primaryColor, size: 22),
@@ -1074,7 +1051,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                   ],
                 ),
               )
-            else if (_searchController.text.isNotEmpty && _searchResults.isEmpty && !_isLoading) // Added !_isLoading
+            else if (_searchController.text.isNotEmpty && _searchResults.isEmpty && !_isLoading)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
                 child: Column(
@@ -1122,7 +1099,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                                 elevation: 0,
                               ),
                               onPressed: () {
-                                // Pass empty photoUrl if creating from text search
                                 _showCreateItemForm(_searchController.text, initialPhotoUrl: null);
                               },
                             ),
@@ -1138,7 +1114,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                 padding: const EdgeInsets.only(top: 8.0),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.21, // Adjust as needed
+                    maxHeight: MediaQuery.of(context).size.height * 0.21,
                   ),
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -1158,7 +1134,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                         child: ListTile(
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                           leading: Hero(
-                            tag: 'item_search_${item['item_id'] ?? item['id'] ?? index}', // Ensure unique tag
+                            tag: 'item_search_${item['item_id'] ?? item['id'] ?? index}',
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child:

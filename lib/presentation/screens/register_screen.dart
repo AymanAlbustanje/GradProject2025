@@ -110,7 +110,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Image.asset('assets/images/1.png', height: 160),
+                      Image.asset('assets/images/1.png', height: 130),
                       const SizedBox(height: 30),
                       Text(
                         'Create an Account!',

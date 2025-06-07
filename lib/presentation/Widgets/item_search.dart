@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:gradproject2025/Logic/blocs/in_house_bloc.dart';
 import 'package:gradproject2025/data/DataSources/notification_service.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:gradproject2025/Logic/blocs/current_household_bloc.dart';
@@ -569,6 +570,10 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
       if (kDebugMode) print("[ItemSearchWidget] _showCreateItemForm: Widget not mounted, aborting dialog.");
       return;
     }
+
+    // Unfocus current text field before showing the dialog
+    FocusScope.of(context).unfocus();
+
     final BuildContext currentContext = context;
 
     if (kDebugMode) {
@@ -844,6 +849,9 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                   ),
                   onPressed: () async {
                     if (formKey.currentState!.validate()) {
+                      // Unfocus before submitting
+                      FocusScope.of(currentContext).unfocus();
+
                       try {
                         await _createNewItem(
                           name: nameController.text.trim(),
@@ -876,7 +884,10 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
           },
         );
       },
-    );
+    ).then((_) {
+      // Ensure keyboard is dismissed after dialog closes
+      FocusScope.of(currentContext).unfocus();
+    });
   }
 
   Future<void> _createNewItem({
@@ -888,6 +899,10 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
     String? itemPhoto,
   }) async {
     if (!mounted) return;
+
+    // Unfocus at the beginning of the method
+    FocusScope.of(context).unfocus();
+
     setState(() {
       _isLoading = true;
     });
@@ -903,19 +918,30 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
 
       final String photoToSubmit = (itemPhoto != null && itemPhoto.isNotEmpty) ? itemPhoto : _defaultItemPhotoUrl;
 
+      // Create a base request object
+      final Map<String, dynamic> requestData = {
+        'itemName': name,
+        'category': category,
+        'householdId': int.parse(_currentHouseholdId!),
+        'location': 'in_house',
+        'price': price,
+        'itemPhoto': photoToSubmit,
+      };
+
+      // Only add expirationDate if it's not null
+      if (expirationDate != null) {
+        requestData['expirationDate'] = expirationDate.toIso8601String().split('T')[0];
+      }
+
+      // Only add barcode if it's not null and not empty
+      if (barcode != null && barcode.isNotEmpty) {
+        requestData['barcode'] = barcode;
+      }
+
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}/api/items/create'),
         headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-        body: jsonEncode({
-          'itemName': name,
-          'category': category,
-          'barcode': barcode,
-          'householdId': int.parse(_currentHouseholdId!),
-          'location': 'in_house',
-          'price': price,
-          'expirationDate': expirationDate?.toIso8601String().split('T')[0],
-          'itemPhoto': photoToSubmit,
-        }),
+        body: jsonEncode(requestData),
       );
 
       _logApiResponse(response, contextMsg: 'Create new item response (ItemSearchWidget)');
@@ -939,6 +965,32 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
             }
           }
         }
+
+        // Clear search field and results to refresh the page
+        setState(() {
+          _searchController.clear();
+          _searchResults = [];
+        });
+
+        // Use a post-frame callback to ensure unfocus happens after state update
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            FocusScope.of(context).unfocus();
+          }
+        });
+
+        // Refresh the in-house items list
+        if (mounted) {
+          // Get the current household ID from the bloc
+          final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
+          if (currentHouseholdState is CurrentHouseholdSet) {
+            // Refresh the InHouseBloc to update the items list
+            context.read<InHouseBloc>().add(
+              LoadHouseholdItems(householdId: currentHouseholdState.household.id.toString()),
+            );
+          }
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$name created and added successfully')));
       } else {
         final responseBody = jsonDecode(response.body);
@@ -958,6 +1010,8 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
         setState(() {
           _isLoading = false;
         });
+        // Final unfocus attempt in case previous ones didn't work
+        FocusScope.of(context).unfocus();
       }
     }
   }
@@ -1064,11 +1118,11 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                       style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 18),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      'We couldn\'t find any items matching "${_searchController.text}"',
-                      style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 14),
-                      textAlign: TextAlign.center,
-                    ),
+                    // Text(
+                    //   'We couldn\'t find any items matching "${_searchController.text}"',
+                    //   style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 14),
+                    //   textAlign: TextAlign.center,
+                    // ),
                     const SizedBox(height: 24),
                     Card(
                       elevation: 2,
@@ -1113,9 +1167,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
               Padding(
                 padding: const EdgeInsets.only(top: 8.0),
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.21,
-                  ),
+                  constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.21),
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     shrinkWrap: true,

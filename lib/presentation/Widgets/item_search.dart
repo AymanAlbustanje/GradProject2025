@@ -636,10 +636,9 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                   child: Form(
                     key: formKey,
                     child: Column(
-                      mainAxisSize: MainAxisSize.min, // Crucial for Column in SingleChildScrollView
+                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Image preview if initialPhotoUrl is available
                         if (initialPhotoUrl != null && initialPhotoUrl.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 16.0),
@@ -648,13 +647,12 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                                 borderRadius: BorderRadius.circular(8.0),
                                 child: Image.network(
                                   initialPhotoUrl,
-                                  height: 150, // Fixed height
-                                  // No width: double.infinity here
+                                  height: 150,
                                   fit: BoxFit.contain,
                                   errorBuilder:
                                       (ctx, err, st) => Container(
                                         height: 120,
-                                        width: 120, // Finite width for error placeholder
+                                        width: 120,
                                         alignment: Alignment.center,
                                         decoration: BoxDecoration(
                                           color: Colors.grey[200],
@@ -670,7 +668,7 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                                     if (loadingProgress == null) return child;
                                     return SizedBox(
                                       height: 120,
-                                      width: 120, // Finite width for loading placeholder
+                                      width: 120,
                                       child: Center(
                                         child: CircularProgressIndicator(
                                           value:
@@ -849,7 +847,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                   ),
                   onPressed: () async {
                     if (formKey.currentState!.validate()) {
-                      // Unfocus before submitting
                       FocusScope.of(currentContext).unfocus();
 
                       try {
@@ -885,7 +882,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
         );
       },
     ).then((_) {
-      // Ensure keyboard is dismissed after dialog closes
       FocusScope.of(currentContext).unfocus();
     });
   }
@@ -900,7 +896,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
   }) async {
     if (!mounted) return;
 
-    // Unfocus at the beginning of the method
     FocusScope.of(context).unfocus();
 
     setState(() {
@@ -918,7 +913,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
 
       final String photoToSubmit = (itemPhoto != null && itemPhoto.isNotEmpty) ? itemPhoto : _defaultItemPhotoUrl;
 
-      // Create a base request object
       final Map<String, dynamic> requestData = {
         'itemName': name,
         'category': category,
@@ -928,12 +922,10 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
         'itemPhoto': photoToSubmit,
       };
 
-      // Only add expirationDate if it's not null
       if (expirationDate != null) {
         requestData['expirationDate'] = expirationDate.toIso8601String().split('T')[0];
       }
 
-      // Only add barcode if it's not null and not empty
       if (barcode != null && barcode.isNotEmpty) {
         requestData['barcode'] = barcode;
       }
@@ -966,25 +958,20 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
           }
         }
 
-        // Clear search field and results to refresh the page
         setState(() {
           _searchController.clear();
           _searchResults = [];
         });
 
-        // Use a post-frame callback to ensure unfocus happens after state update
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             FocusScope.of(context).unfocus();
           }
         });
 
-        // Refresh the in-house items list
         if (mounted) {
-          // Get the current household ID from the bloc
           final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
           if (currentHouseholdState is CurrentHouseholdSet) {
-            // Refresh the InHouseBloc to update the items list
             context.read<InHouseBloc>().add(
               LoadHouseholdItems(householdId: currentHouseholdState.household.id.toString()),
             );
@@ -1010,7 +997,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
         setState(() {
           _isLoading = false;
         });
-        // Final unfocus attempt in case previous ones didn't work
         FocusScope.of(context).unfocus();
       }
     }
@@ -1118,11 +1104,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                       style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 18),
                     ),
                     const SizedBox(height: 8),
-                    // Text(
-                    //   'We couldn\'t find any items matching "${_searchController.text}"',
-                    //   style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 14),
-                    //   textAlign: TextAlign.center,
-                    // ),
                     const SizedBox(height: 24),
                     Card(
                       elevation: 2,

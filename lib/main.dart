@@ -8,13 +8,13 @@ import 'package:gradproject2025/Logic/blocs/in_house_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/household_bloc.dart';
 import 'package:gradproject2025/Logic/blocs/current_household_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:gradproject2025/data/DataSources/notification_service.dart'; // Added
-import 'package:timezone/data/latest_all.dart' as tz; // Added
+import 'package:gradproject2025/data/DataSources/notification_service.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  tz.initializeTimeZones(); // Added: Initialize timezones FIRST
-  await NotificationService().init(); // Added: Initialize NotificationService
+  tz.initializeTimeZones();
+  await NotificationService().init();
   final isLoggedIn = await _checkIfLoggedIn();
   runApp(MyApp(isLoggedIn: isLoggedIn));
 }
@@ -25,7 +25,7 @@ Future<bool> _checkIfLoggedIn() async {
   if (kDebugMode) {
     print('Token found: $token');
   }
-  return token != null && token.isNotEmpty; // Return true if a valid token exists
+  return token != null && token.isNotEmpty;
 }
 
 class MyApp extends StatelessWidget {
@@ -49,17 +49,17 @@ class MyApp extends StatelessWidget {
           ],
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
-            title: 'ToBuy', // You can change this title
+            title: 'ToBuy',
             theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFF0078D4), // Example seed color
+                seedColor: const Color(0xFF0078D4),
                 brightness: Brightness.light,
               ),
               useMaterial3: true,
             ),
             darkTheme: ThemeData(
               colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFF0078D4), // Example seed color
+                seedColor: const Color(0xFF0078D4),
                 brightness: Brightness.dark,
               ),
               useMaterial3: true,

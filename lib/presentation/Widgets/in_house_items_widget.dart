@@ -374,7 +374,11 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                   ),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.pop(dialogItselfContext),
+                      onPressed: () {
+                        // Hide keyboard before closing the dialog
+                        FocusScope.of(dialogItselfContext).unfocus();
+                        Navigator.pop(dialogItselfContext);
+                      },
                       style: TextButton.styleFrom(foregroundColor: subtitleColor),
                       child: const Text('CANCEL'),
                     ),
@@ -387,6 +391,9 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                               ? null
                               : () async {
                                 if (formKey.currentState!.validate()) {
+                                  // Hide keyboard when form is submitted
+                                  FocusScope.of(dialogItselfContext).unfocus();
+
                                   stfSetState(() {
                                     isSubmitting = true;
                                   });
@@ -417,14 +424,24 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                                     final token = prefs.getString('token');
                                     if (token == null) throw Exception('Token not found');
 
+                                    // Ensure householdId is sent as an integer
+                                    final int householdIdInt =
+                                        selectedHouseholdId is int
+                                            ? selectedHouseholdId
+                                            : int.parse(selectedHouseholdId.toString());
+
                                     final Map<String, dynamic> requestData = {
                                       'itemName': itemName,
                                       'itemPhoto': itemPhoto,
-                                      'householdId': selectedHouseholdId,
+                                      'householdId': householdIdInt, // Ensure this is an integer
                                       'location': 'in_house',
                                       'price': price,
                                       'category': selectedCategoryDialog,
                                     };
+
+                                    if (kDebugMode) {
+                                      print('Creating item with request data: ${jsonEncode(requestData)}');
+                                    }
 
                                     if (selectedExpirationDate != null) {
                                       requestData['expirationDate'] =
@@ -443,7 +460,49 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
 
                                     if (!mounted) return;
 
-                                    if (response.statusCode == 409 || response.statusCode == 400) {
+                                    // Check for specific status codes
+                                    if (response.statusCode == 201) {
+                                      // Success - item created
+                                      final responseData = jsonDecode(response.body);
+                                      final dynamic householdItemId = responseData['household_item_id'];
+
+                                      if (kDebugMode) {
+                                        print('Item created successfully with household_item_id: $householdItemId');
+                                      }
+
+                                      // Schedule notification if expiration date is set
+                                      if (selectedExpirationDate != null && householdItemId != null) {
+                                        final int? notificationId = int.tryParse(householdItemId.toString());
+                                        if (notificationId != null) {
+                                          await _notificationService.scheduleSimpleExpirationNotification(
+                                            id: notificationId,
+                                            itemName: itemName,
+                                            expirationDate: selectedExpirationDate!,
+                                          );
+                                        }
+                                      }
+
+                                      if (dialogItselfContext.mounted) {
+                                        Navigator.pop(dialogItselfContext);
+
+                                        // Make sure keyboard is dismissed again after navigation
+                                        FocusManager.instance.primaryFocus?.unfocus();
+
+                                        // Show success message
+                                        ScaffoldMessenger.of(parentDialogContext).showSnackBar(
+                                          SnackBar(content: Text('$itemName created and added to your household!')),
+                                        );
+
+                                        // Refresh the items list
+                                        final currentHState =
+                                            BlocProvider.of<CurrentHouseholdBloc>(parentDialogContext).state;
+                                        if (currentHState is CurrentHouseholdSet) {
+                                          BlocProvider.of<InHouseBloc>(
+                                            parentDialogContext,
+                                          ).add(LoadHouseholdItems(householdId: currentHState.household.id.toString()));
+                                        }
+                                      }
+                                    } else if (response.statusCode == 409 || response.statusCode == 400) {
                                       final responseData = jsonDecode(response.body);
                                       String errorMessage = responseData['message'] ?? 'Error creating item';
 
@@ -459,23 +518,26 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                                         }
                                         return;
                                       }
-                                    }
-                                    if (dialogItselfContext.mounted) {
-                                      Navigator.pop(dialogItselfContext);
-
-                                      // Always show success message
-                                      ScaffoldMessenger.of(parentDialogContext).showSnackBar(
-                                        SnackBar(content: Text('$itemName created and added to your household!')),
-                                      );
-
-                                      // Refresh the items list
-                                      final currentHState =
-                                          BlocProvider.of<CurrentHouseholdBloc>(parentDialogContext).state;
-                                      if (currentHState is CurrentHouseholdSet) {
-                                        BlocProvider.of<InHouseBloc>(
-                                          parentDialogContext,
-                                        ).add(LoadHouseholdItems(householdId: currentHState.household.id.toString()));
+                                    } else {
+                                      // New case: handle other errors
+                                      if (kDebugMode) {
+                                        print(
+                                          'Error creating item: Status ${response.statusCode}, body: ${response.body}',
+                                        );
                                       }
+
+                                      stfSetState(() {
+                                        isSubmitting = false;
+                                      });
+
+                                      ScaffoldMessenger.of(dialogItselfContext).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Failed to create item: ${response.reasonPhrase ?? "Unknown error"}',
+                                          ),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
                                     }
                                   } catch (e) {
                                     if (dialogItselfContext.mounted) {

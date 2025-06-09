@@ -1,4 +1,4 @@
-// ignore_for_file: library_private_types_in_public_api, use_build_context_synchronously, avoid_print
+// ignore_for_file: library_private_types_in_public_api, use_build_context_synchronously, avoid_print, deprecated_member_use
 
 import 'dart:convert';
 import 'dart:math';
@@ -41,6 +41,9 @@ class _InHouseScreenState extends State<InHouseScreen> {
   }
 
   void _triggerAddItemForm() {
+    // Dismiss keyboard if it's showing
+    FocusManager.instance.primaryFocus?.unfocus();
+
     final BuildContext screenContext = context;
     _inHouseItemsKey.currentState?.displayCreateAndAddItemForm(
       screenContext,
@@ -165,82 +168,132 @@ class _InHouseScreenState extends State<InHouseScreen> {
   }
 
   Future<void> _scanBarcodeAndAddItem() async {
-    String? barcode;
     final BuildContext screenContext = context;
+    MobileScannerController? cameraController;
 
     try {
-      barcode = await Navigator.of(screenContext).push(
-        MaterialPageRoute(
-          builder:
-              (scannerContext) => Scaffold(
-                appBar: AppBar(
-                  title: const Text('Scan Barcode'),
-                  backgroundColor: Theme.of(scannerContext).colorScheme.primary,
-                  foregroundColor: Colors.white,
-                ),
-                body: MobileScanner(
-                  controller: MobileScannerController(
-                    detectionSpeed: DetectionSpeed.normal,
-                    facing: CameraFacing.back,
-                    torchEnabled: false,
-                  ),
-                  onDetect: (capture) {
-                    final List<Barcode> barcodes = capture.barcodes;
-                    for (final scannedBarcodeData in barcodes) {
-                      if (scannedBarcodeData.rawValue != null) {
-                        Navigator.of(scannerContext).pop(scannedBarcodeData.rawValue);
-                        break;
-                      }
-                    }
-                  },
-                ),
-              ),
-        ),
+      // Create a dedicated controller that we can safely dispose
+      cameraController = MobileScannerController(
+        detectionSpeed: DetectionSpeed.normal,
+        facing: CameraFacing.back,
+        torchEnabled: false,
+        // Don't return images to save memory
+        returnImage: false,
       );
+
+      final String? barcode = await showDialog<String>(
+        context: screenContext,
+        barrierDismissible: true,
+        builder: (BuildContext dialogContext) {
+          return WillPopScope(
+            // Handle back button properly
+            onWillPop: () async {
+              // Explicitly stop camera before popping
+              await cameraController?.stop();
+              return true;
+            },
+            child: Dialog(
+              insetPadding: EdgeInsets.zero,
+              clipBehavior: Clip.antiAliasWithSaveLayer,
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(0))),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AppBar(
+                    title: const Text('Scan Barcode'),
+                    backgroundColor: Theme.of(dialogContext).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    leading: IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () {
+                        // Ensure camera is stopped before navigation
+                        cameraController?.stop().then((_) {
+                          Navigator.pop(dialogContext);
+                        });
+                      },
+                    ),
+                  ),
+                  SizedBox(
+                    height: MediaQuery.of(dialogContext).size.height * 0.7,
+                    width: MediaQuery.of(dialogContext).size.width,
+                    child: MobileScanner(
+                      controller: cameraController,
+                      onDetect: (capture) {
+                        final List<Barcode> barcodes = capture.barcodes;
+                        for (final scannedBarcodeData in barcodes) {
+                          if (scannedBarcodeData.rawValue != null) {
+                            // Stop camera before popping
+                            cameraController?.stop().then((_) {
+                              Navigator.pop(dialogContext, scannedBarcodeData.rawValue);
+                            });
+                            break;
+                          }
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+
+      // Always ensure camera is stopped, even if dialog is dismissed
+      await cameraController.stop();
+
+      if (barcode == null || !mounted) {
+        if (kDebugMode && barcode == null) print('Barcode scanning cancelled or returned null.');
+        return;
+      }
+
+      // Show processing message
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        screenContext,
+      ).showSnackBar(SnackBar(content: Text('Processing barcode: $barcode'), duration: const Duration(seconds: 1)));
+
+      // Fetch product info
+      final productInfo = await fetchProductInfoFromBarcode(barcode);
+      if (kDebugMode) print('Product info fetched for $barcode: $productInfo');
+
+      if (!mounted) return;
+
+      if (_inHouseItemsKey.currentState == null) {
+        if (kDebugMode) print('_inHouseItemsKey.currentState is null. Cannot display form.');
+        ScaffoldMessenger.of(
+          screenContext,
+        ).showSnackBar(const SnackBar(content: Text('Error: Could not prepare item form.')));
+        return;
+      }
+
+      // Use a simple delay to ensure UI is ready
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          if (productInfo != null) {
+            _inHouseItemsKey.currentState?.displayCreateAndAddItemForm(
+              screenContext,
+              productInfo['name'] ?? '',
+              barcodeValue: barcode,
+              initialPhotoUrl: productInfo['photoUrl'],
+            );
+          } else {
+            _inHouseItemsKey.currentState?.displayCreateAndAddItemForm(screenContext, '', barcodeValue: barcode);
+          }
+        }
+      });
     } catch (e) {
+      // Always try to release camera in case of error
+      try {
+        await cameraController?.stop();
+      } catch (_) {}
+
       if (kDebugMode) print('Error during barcode scanning: $e');
       if (!mounted) return;
+
       ScaffoldMessenger.of(
         screenContext,
       ).showSnackBar(SnackBar(content: Text('Error scanning barcode: ${e.toString()}')));
-      return;
     }
-
-    if (barcode == null || !mounted) {
-      if (kDebugMode && barcode == null) print('Barcode scanning cancelled or returned null.');
-      return;
-    }
-
-    ScaffoldMessenger.of(
-      screenContext,
-    ).showSnackBar(SnackBar(content: Text('Processing barcode: $barcode'), duration: const Duration(seconds: 1)));
-
-    final productInfo = await fetchProductInfoFromBarcode(barcode);
-
-    if (kDebugMode) print('Product info fetched for $barcode: $productInfo');
-    if (!mounted) return;
-
-    if (_inHouseItemsKey.currentState == null) {
-      if (kDebugMode) print('_inHouseItemsKey.currentState is null. Cannot display form.');
-      ScaffoldMessenger.of(
-        screenContext,
-      ).showSnackBar(const SnackBar(content: Text('Error: Could not prepare item form.')));
-      return;
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-
-      if (productInfo != null) {
-        _inHouseItemsKey.currentState?.displayCreateAndAddItemForm(
-          screenContext,
-          productInfo['name'] ?? '',
-          barcodeValue: barcode,
-          initialPhotoUrl: productInfo['photoUrl'],
-        );
-      } else {
-        _inHouseItemsKey.currentState?.displayCreateAndAddItemForm(screenContext, '', barcodeValue: barcode);
-      }
-    });
   }
 }

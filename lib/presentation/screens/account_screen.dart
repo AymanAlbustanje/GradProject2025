@@ -3,8 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:gradproject2025/presentation/screens/notification_settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'login_screen.dart'; // Import LoginScreen for logout
-
+import 'login_screen.dart';
 class AccountScreen extends StatefulWidget {
   final ValueNotifier<ThemeMode> themeNotifier;
 
@@ -28,7 +27,6 @@ class _AccountScreenState extends State<AccountScreen> {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
-      // token = prefs.getString('token') ?? 'Unknown Token';
       username = prefs.getString('username') ?? 'Unknown User';
       email = prefs.getString('email') ?? 'Unknown Email';
     });
@@ -59,7 +57,7 @@ class _AccountScreenState extends State<AccountScreen> {
             TextButton(
               child: Text('Cancel', style: TextStyle(color: subtitleColor)),
               onPressed: () {
-                Navigator.of(dialogContext).pop(false); // User canceled
+                Navigator.of(dialogContext).pop(false);
               },
             ),
             ElevatedButton(
@@ -70,7 +68,7 @@ class _AccountScreenState extends State<AccountScreen> {
               ),
               child: const Text('Log Out'),
               onPressed: () {
-                Navigator.of(dialogContext).pop(true); // User confirmed
+                Navigator.of(dialogContext).pop(true);
               },
             ),
           ],
@@ -79,9 +77,8 @@ class _AccountScreenState extends State<AccountScreen> {
     );
 
     if (confirmed == true) {
-      // Proceed with logout
       final prefs = await SharedPreferences.getInstance();
-      await prefs.clear(); // Clears all data in SharedPreferences
+      await prefs.clear();
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
@@ -90,10 +87,6 @@ class _AccountScreenState extends State<AccountScreen> {
       );
     }
   }
-
-  // Modify the existing _logout or rename it if you prefer,
-  // then call _showLogoutConfirmationDialog from the button's onPressed.
-  // For this example, I'm making the button call _showLogoutConfirmationDialog directly.
 
   @override
   Widget build(BuildContext context) {
@@ -113,7 +106,6 @@ class _AccountScreenState extends State<AccountScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          // Account Info Section
           Container(
             padding: const EdgeInsets.all(20),
             margin: const EdgeInsets.only(bottom: 20),
@@ -138,14 +130,14 @@ class _AccountScreenState extends State<AccountScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(email, style: TextStyle(fontSize: 16, color: subtitleColor), textAlign: TextAlign.center),
-                const SizedBox(height: 24), // Spacer before logout button
+                const SizedBox(height: 24),
                 SizedBox(
-                  width: 150, // Make button take available width within the card
-                  child: ElevatedButton.icon(
-                    onPressed: _showLogoutConfirmationDialog, // Call the confirmation dialog
+                  width: 150,
+                  child: ElevatedButton.icon( 
+                    onPressed: _showLogoutConfirmationDialog,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor.withOpacity(0.8), // Use primary theme color
-                      foregroundColor: Colors.white, // Text color for the button
+                      backgroundColor: primaryColor.withOpacity(0.8),
+                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       elevation: 1,
@@ -158,7 +150,6 @@ class _AccountScreenState extends State<AccountScreen> {
             ),
           ),
 
-          // Dark Mode Switch
           _buildSwitchTile(
             title: 'Dark Mode',
             icon: isDarkMode ? Icons.dark_mode : Icons.light_mode,
@@ -171,7 +162,6 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
           const SizedBox(height: 10),
 
-          // Notification Settings Navigation
           _buildNavigationTile(
             context,
             title: 'Notification Settings',
@@ -200,7 +190,7 @@ class _AccountScreenState extends State<AccountScreen> {
       ),
       child: SwitchListTile(
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
-        activeColor: Theme.of(context).colorScheme.primary, // Use theme color
+        activeColor: Theme.of(context).colorScheme.primary,
         secondary: Icon(icon, color: Theme.of(context).colorScheme.primary),
         value: value,
         onChanged: onChanged,

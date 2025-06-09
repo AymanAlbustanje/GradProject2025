@@ -41,7 +41,6 @@ class _InHouseScreenState extends State<InHouseScreen> {
   }
 
   void _triggerAddItemForm() {
-    // Dismiss keyboard if it's showing
     FocusManager.instance.primaryFocus?.unfocus();
 
     final BuildContext screenContext = context;
@@ -172,12 +171,10 @@ class _InHouseScreenState extends State<InHouseScreen> {
     MobileScannerController? cameraController;
 
     try {
-      // Create a dedicated controller that we can safely dispose
       cameraController = MobileScannerController(
         detectionSpeed: DetectionSpeed.normal,
         facing: CameraFacing.back,
         torchEnabled: false,
-        // Don't return images to save memory
         returnImage: false,
       );
 
@@ -186,9 +183,7 @@ class _InHouseScreenState extends State<InHouseScreen> {
         barrierDismissible: true,
         builder: (BuildContext dialogContext) {
           return WillPopScope(
-            // Handle back button properly
             onWillPop: () async {
-              // Explicitly stop camera before popping
               await cameraController?.stop();
               return true;
             },
@@ -206,7 +201,6 @@ class _InHouseScreenState extends State<InHouseScreen> {
                     leading: IconButton(
                       icon: const Icon(Icons.arrow_back),
                       onPressed: () {
-                        // Ensure camera is stopped before navigation
                         cameraController?.stop().then((_) {
                           Navigator.pop(dialogContext);
                         });
@@ -222,7 +216,6 @@ class _InHouseScreenState extends State<InHouseScreen> {
                         final List<Barcode> barcodes = capture.barcodes;
                         for (final scannedBarcodeData in barcodes) {
                           if (scannedBarcodeData.rawValue != null) {
-                            // Stop camera before popping
                             cameraController?.stop().then((_) {
                               Navigator.pop(dialogContext, scannedBarcodeData.rawValue);
                             });
@@ -239,7 +232,6 @@ class _InHouseScreenState extends State<InHouseScreen> {
         },
       );
 
-      // Always ensure camera is stopped, even if dialog is dismissed
       await cameraController.stop();
 
       if (barcode == null || !mounted) {
@@ -247,13 +239,11 @@ class _InHouseScreenState extends State<InHouseScreen> {
         return;
       }
 
-      // Show processing message
       if (!mounted) return;
       ScaffoldMessenger.of(
         screenContext,
       ).showSnackBar(SnackBar(content: Text('Processing barcode: $barcode'), duration: const Duration(seconds: 1)));
 
-      // Fetch product info
       final productInfo = await fetchProductInfoFromBarcode(barcode);
       if (kDebugMode) print('Product info fetched for $barcode: $productInfo');
 
@@ -267,7 +257,6 @@ class _InHouseScreenState extends State<InHouseScreen> {
         return;
       }
 
-      // Use a simple delay to ensure UI is ready
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted) {
           if (productInfo != null) {
@@ -283,7 +272,6 @@ class _InHouseScreenState extends State<InHouseScreen> {
         }
       });
     } catch (e) {
-      // Always try to release camera in case of error
       try {
         await cameraController?.stop();
       } catch (_) {}

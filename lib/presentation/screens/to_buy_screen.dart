@@ -26,7 +26,7 @@ class ToBuyScreen extends StatefulWidget {
 
 class _ToBuyScreenState extends State<ToBuyScreen> {
   static const String _selectedViewModeKey = 'toBuyScreen_selectedViewMode';
-  ListViewMode _currentView = ListViewMode.currentHousehold; // Default
+  ListViewMode _currentView = ListViewMode.currentHousehold;
   Map<String, List<Item>> _groupedAllHouseholdsItems = {};
   bool _isLoadingAllItems = false;
 
@@ -272,7 +272,7 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
                                 setState(() {
                                   _currentView = newValue;
                                 });
-                                await _saveSelectedViewPreference(newValue); // Save preference
+                                await _saveSelectedViewPreference(newValue);
                                 if (newValue == ListViewMode.allHouseholds) {
                                   _loadAllHouseholdsItems();
                                 } else {
@@ -410,21 +410,21 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
                   onPressed: () => _showMoveToHouseDialog(context, item),
                 ),
                 PopupMenuButton<String>(
-                  icon: Icon(Icons.more_vert, color: subtitleColor), // Standard icon
+                  icon: Icon(Icons.more_vert, color: subtitleColor),
                   tooltip: "More options",
-                  color: Theme.of(context).cardColor, // Use card color for menu background
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), // Standard shape
+                  color: Theme.of(context).cardColor,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
                     const PopupMenuItem<String>(
                       value: 'update',
-                      child: ListTile( // Use ListTile for standard appearance
+                      child: ListTile(
                         leading: Icon(Icons.edit),
                         title: Text('Edit'),
                       ),
                     ),
                     const PopupMenuItem<String>(
                       value: 'delete',
-                      child: ListTile( // Use ListTile for standard appearance
+                      child: ListTile(
                         leading: Icon(Icons.delete, color: Colors.red),
                         title: Text('Delete', style: TextStyle(color: Colors.red)),
                       ),
@@ -1034,7 +1034,6 @@ class _ToBuyScreenState extends State<ToBuyScreen> {
       if (expirationDate != null) {
         requestBody['expirationDate'] = expirationDate.toIso8601String().split('T')[0];
       } else {
-        // requestBody['expirationDate'] = null; 
       }
 
 

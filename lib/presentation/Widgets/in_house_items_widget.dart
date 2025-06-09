@@ -375,7 +375,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                   actions: [
                     TextButton(
                       onPressed: () {
-                        // Hide keyboard before closing the dialog
                         FocusScope.of(dialogItselfContext).unfocus();
                         Navigator.pop(dialogItselfContext);
                       },
@@ -391,7 +390,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                               ? null
                               : () async {
                                 if (formKey.currentState!.validate()) {
-                                  // Hide keyboard when form is submitted
                                   FocusScope.of(dialogItselfContext).unfocus();
 
                                   stfSetState(() {
@@ -424,7 +422,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                                     final token = prefs.getString('token');
                                     if (token == null) throw Exception('Token not found');
 
-                                    // Ensure householdId is sent as an integer
                                     final int householdIdInt =
                                         selectedHouseholdId is int
                                             ? selectedHouseholdId
@@ -433,7 +430,7 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                                     final Map<String, dynamic> requestData = {
                                       'itemName': itemName,
                                       'itemPhoto': itemPhoto,
-                                      'householdId': householdIdInt, // Ensure this is an integer
+                                      'householdId': householdIdInt,
                                       'location': 'in_house',
                                       'price': price,
                                       'category': selectedCategoryDialog,
@@ -460,9 +457,7 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
 
                                     if (!mounted) return;
 
-                                    // Check for specific status codes
                                     if (response.statusCode == 201) {
-                                      // Success - item created
                                       final responseData = jsonDecode(response.body);
                                       final dynamic householdItemId = responseData['household_item_id'];
 
@@ -470,7 +465,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                                         print('Item created successfully with household_item_id: $householdItemId');
                                       }
 
-                                      // Schedule notification if expiration date is set
                                       if (selectedExpirationDate != null && householdItemId != null) {
                                         final int? notificationId = int.tryParse(householdItemId.toString());
                                         if (notificationId != null) {
@@ -485,15 +479,12 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                                       if (dialogItselfContext.mounted) {
                                         Navigator.pop(dialogItselfContext);
 
-                                        // Make sure keyboard is dismissed again after navigation
                                         FocusManager.instance.primaryFocus?.unfocus();
 
-                                        // Show success message
                                         ScaffoldMessenger.of(parentDialogContext).showSnackBar(
                                           SnackBar(content: Text('$itemName created and added to your household!')),
                                         );
 
-                                        // Refresh the items list
                                         final currentHState =
                                             BlocProvider.of<CurrentHouseholdBloc>(parentDialogContext).state;
                                         if (currentHState is CurrentHouseholdSet) {
@@ -519,7 +510,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                                         return;
                                       }
                                     } else {
-                                      // New case: handle other errors
                                       if (kDebugMode) {
                                         print(
                                           'Error creating item: Status ${response.statusCode}, body: ${response.body}',
@@ -830,7 +820,7 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDarkMode ? Colors.white : Colors.black87;
     final backgroundColor = isDarkMode ? const Color(0xFF1F1F1F) : Colors.white;
-    final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[700]; // For cancel button
+    final subtitleColor = isDarkMode ? Colors.grey[400] : Colors.grey[700];
 
     showDialog(
       context: context,
@@ -844,7 +834,7 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
                 Icons.delete_outline,
                 color: Theme.of(dialogContext).colorScheme.error,
                 size: 24,
-              ), // Using error color for icon
+              ),
               const SizedBox(width: 8),
               Text('Delete Item', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
             ],
@@ -859,15 +849,14 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
               child: Text('CANCEL', style: TextStyle(color: subtitleColor)),
             ),
             ElevatedButton(
-              // Changed to ElevatedButton
               onPressed: () {
                 Navigator.pop(dialogContext);
                 _deleteItem(context, item);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor:
-                    Theme.of(dialogContext).colorScheme.error, // Using error color for delete button background
-                foregroundColor: Colors.white, // White text
+                    Theme.of(dialogContext).colorScheme.error,
+                foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               child: const Text('DELETE'),
@@ -1183,7 +1172,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
 
       if (!context.mounted) return;
 
-      // For testing purposes - always consider it successful
       if (response.statusCode == 200) {
         if (expirationDate != null) {
           _notificationService.scheduleSimpleExpirationNotification(
@@ -1202,7 +1190,6 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
           );
         }
       } else {
-        // Only show actual error in non-test mode
         if (!kDebugMode) {
           final errorData = jsonDecode(response.body);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1213,11 +1200,9 @@ class InHouseItemsWidgetState extends State<InHouseItemsWidget> {
     } catch (e) {
       if (!context.mounted) return;
 
-      // In test mode, show success message even for errors
       if (kDebugMode) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('"${item.name}" has been updated')));
 
-        // Still try to refresh the items list
         final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
         if (currentHouseholdState is CurrentHouseholdSet) {
           context.read<InHouseBloc>().add(

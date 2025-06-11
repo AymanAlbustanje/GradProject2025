@@ -455,11 +455,28 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                             children: [
                               Text(
                                 selectedExpirationDate == null
-                                    ? 'Select Date'
+                                    ? 'Select Date (Optional)'
                                     : DateFormat('yyyy-MM-dd').format(selectedExpirationDate!),
                                 style: TextStyle(color: textColor),
                               ),
-                              Icon(Icons.calendar_today, color: primaryColor),
+                              Row(
+                                children: [
+                                  if (selectedExpirationDate != null)
+                                    IconButton(
+                                      icon: Icon(Icons.clear, color: subtitleColor, size: 20),
+                                      onPressed: () {
+                                        stfSetState(() {
+                                          selectedExpirationDate = null;
+                                        });
+                                      },
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      tooltip: 'Clear date',
+                                    ),
+                                  const SizedBox(width: 8),
+                                  Icon(Icons.calendar_today, color: primaryColor),
+                                ],
+                              ),
                             ],
                           ),
                         ),
@@ -529,9 +546,32 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                               );
                             }
                           }
+
+                          // Clear search state immediately to provide visual feedback
+                          setState(() {
+                            _searchResults = [];
+                            _searchController.clear();
+                          });
+
+                          // Show success message
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('${item['name'] ?? "Item"} added to household successfully')),
                           );
+
+                          // Ensure we always refresh the InHouseBloc regardless of widget mounting state
+                          if (context.mounted) {
+                            final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
+                            if (currentHouseholdState is CurrentHouseholdSet) {
+                              // Force refresh with a slight delay to ensure the API operation completes
+                              Future.delayed(const Duration(milliseconds: 300), () {
+                                if (context.mounted) {
+                                  context.read<InHouseBloc>().add(
+                                    LoadHouseholdItems(householdId: currentHouseholdState.household.id.toString()),
+                                  );
+                                }
+                              });
+                            }
+                          }
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -969,12 +1009,17 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
           }
         });
 
+        // Refresh the InHouseBloc with a delay to ensure API operation completes
         if (mounted) {
           final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
           if (currentHouseholdState is CurrentHouseholdSet) {
-            context.read<InHouseBloc>().add(
-              LoadHouseholdItems(householdId: currentHouseholdState.household.id.toString()),
-            );
+            Future.delayed(const Duration(milliseconds: 300), () {
+              if (context.mounted) {
+                context.read<InHouseBloc>().add(
+                  LoadHouseholdItems(householdId: currentHouseholdState.household.id.toString()),
+                );
+              }
+            });
           }
         }
 

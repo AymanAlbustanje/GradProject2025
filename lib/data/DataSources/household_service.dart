@@ -12,25 +12,19 @@ class HouseholdService {
   Future<Map<String, String>> _getAuthHeaders() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token') ?? '';
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
+    return {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'};
   }
 
   Future<List<Household>> getMyHouseholds() async {
     try {
       final headers = await _getAuthHeaders();
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/households'),
-        headers: headers,
-      );
-      
+      final response = await http.get(Uri.parse('$baseUrl/api/households'), headers: headers);
+
       if (kDebugMode) {
         print('GET Households Response: ${response.statusCode}');
         print('Response body: ${response.body}');
       }
-      
+
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = json.decode(response.body);
         final List<dynamic> households = responseData['households'];
@@ -46,7 +40,7 @@ class HouseholdService {
     }
   }
 
-  Future<void> createHousehold(String name) async {
+  Future<Household> createHousehold(String name) async {
     try {
       final headers = await _getAuthHeaders();
       final response = await http.post(
@@ -54,13 +48,17 @@ class HouseholdService {
         headers: headers,
         body: json.encode({'name': name}),
       );
-      
+
       if (kDebugMode) {
         print('Create Household Response: ${response.statusCode}');
         print('Response body: ${response.body}');
       }
-      
-      if (response.statusCode != 201) {
+
+      if (response.statusCode == 201) {
+        final Map<String, dynamic> responseData = json.decode(response.body);
+        final household = Household.fromJson(responseData['household']);
+        return household;
+      } else {
         throw Exception('Failed to create household: ${response.statusCode}');
       }
     } catch (e) {
@@ -72,28 +70,28 @@ class HouseholdService {
   }
 
   Future<void> joinHousehold(String inviteCode) async {
-  try {
-    final headers = await _getAuthHeaders();
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/households/join'),
-      headers: headers,
-      body: json.encode({'inviteCode': inviteCode}),
-    );
-    
-    if (kDebugMode) {
-      print('Join Household Response: ${response.statusCode}');
-      print('Response body: ${response.body}');
+    try {
+      final headers = await _getAuthHeaders();
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/households/join'),
+        headers: headers,
+        body: json.encode({'inviteCode': inviteCode}),
+      );
+
+      if (kDebugMode) {
+        print('Join Household Response: ${response.statusCode}');
+        print('Response body: ${response.body}');
+      }
+
+      if (response.statusCode != 200) {
+        final errorMsg = json.decode(response.body)['message'] ?? 'Failed to join household';
+        throw Exception(errorMsg);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error joining household: $e');
+      }
+      throw Exception('Failed to join household: $e');
     }
-    
-    if (response.statusCode != 200) {
-      final errorMsg = json.decode(response.body)['message'] ?? 'Failed to join household';
-      throw Exception(errorMsg);
-    }
-  } catch (e) {
-    if (kDebugMode) {
-      print('Error joining household: $e');
-    }
-    throw Exception('Failed to join household: $e');
   }
-}
 }

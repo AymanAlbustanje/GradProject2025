@@ -59,17 +59,12 @@ class _MainScreenState extends State<MainScreen> {
                     final households = householdState.myHouseholds;
                     String currentHouseholdName = 'Select Household';
 
-                    bool householdExists = false;
                     if (currentHouseholdState is CurrentHouseholdSet) {
-                      householdExists = households.any((h) => h.id == currentHouseholdState.household.id);
-
-                      if (householdExists) {
-                        currentHouseholdName = currentHouseholdState.household.name;
-                      } else {
-                        Future.microtask(() {
-                          context.read<CurrentHouseholdBloc>().add(ClearCurrentHousehold());
-                        });
-                      }
+                      final currentHousehold = households.firstWhere(
+                        (h) => h.id == currentHouseholdState.household.id,
+                        orElse: () => currentHouseholdState.household,
+                      );
+                      currentHouseholdName = currentHousehold.name;
                     }
 
                     return Container(
@@ -91,9 +86,7 @@ class _MainScreenState extends State<MainScreen> {
                               const SizedBox(width: 4),
                               Flexible(
                                 child: Text(
-                                  households.isEmpty
-                                      ? 'No Households'
-                                      : (householdExists ? currentHouseholdName : 'Select Household'),
+                                  households.isEmpty ? 'No Households' : currentHouseholdName,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(fontSize: 14),
                                 ),
@@ -170,7 +163,10 @@ class _MainScreenState extends State<MainScreen> {
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'view') {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const HouseholdScreen()));
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const HouseholdScreen())).then((_) {
+                  // Refresh the list of households after returning from manage/join screen
+                  context.read<HouseholdBloc>().add(LoadHouseholds());
+                });
               }
             },
             itemBuilder: (context) => [const PopupMenuItem(value: 'view', child: Text('Manage Households'))],
@@ -207,7 +203,7 @@ class _MainScreenState extends State<MainScreen> {
                       _showAddHouseholdDialog(context);
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
@@ -337,7 +333,9 @@ class _MainScreenState extends State<MainScreen> {
               onPressed: () {
                 if (formKey.currentState!.validate()) {
                   final householdName = householdNameController.text.trim();
-                  context.read<HouseholdBloc>().add(CreateHousehold(name: householdName));
+                  context.read<HouseholdBloc>().add(
+                    CreateHousehold(name: householdName, currentHouseholdBloc: context.read<CurrentHouseholdBloc>()),
+                  );
                   Navigator.pop(context);
                   ScaffoldMessenger.of(
                     context,

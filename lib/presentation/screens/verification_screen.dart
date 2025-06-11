@@ -90,18 +90,19 @@ class VerificationScreen extends StatelessWidget {
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0078D4),
+                        backgroundColor: Theme.of(context).colorScheme.primary,
                         padding: const EdgeInsets.symmetric(vertical: 16.0),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+                        foregroundColor: Colors.white,
                       ),
-                      child: const Text('Verify', style: TextStyle(fontSize: 18, color: Colors.white)),
+                      child: const Text('Verify', style: TextStyle(fontSize: 18)),
                     ),
                     const SizedBox(height: 20),
                     TextButton(
                       onPressed: () {
                         context.read<VerificationBloc>().add(ResendCode(email: email));
                       },
-                      child: const Text('Resend Code', style: TextStyle(color: Color(0xFF0078D4))),
+                      child: Text('Resend Code', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
                     ),
                   ],
                 ),

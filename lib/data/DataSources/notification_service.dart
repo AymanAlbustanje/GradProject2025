@@ -65,7 +65,7 @@ class NotificationService {
   }) async {
     tz.TZDateTime scheduledTZDateTime;
     String notificationMessageSuffix;
-    int effectiveDaysToNotifyBefore = 5;
+    int effectiveDaysToNotifyBefore = 3;
 
     if (forceShortDelayForTestButton) {
       scheduledTZDateTime = tz.TZDateTime.now(tz.local).add(const Duration(seconds: 15));

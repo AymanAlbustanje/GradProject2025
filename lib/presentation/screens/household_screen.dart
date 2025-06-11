@@ -34,10 +34,25 @@ class HouseholdScreen extends StatelessWidget {
               ScaffoldMessenger.of(
                 context,
               ).showSnackBar(SnackBar(content: Text(state.error), backgroundColor: Colors.redAccent));
-            } else if (state is HouseholdLoaded && state.joinSuccess == true) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Successfully joined household!'), backgroundColor: Colors.green),
-              );
+            } else if (state is HouseholdLoaded) {
+              if (state.joinSuccess) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Successfully joined household!'), backgroundColor: Colors.green),
+                );
+                // Find the joined household by invite code and select it
+                final joinedHousehold = state.myHouseholds.firstWhere(
+                  (h) => h.inviteCode == inviteCodeController.text.trim(),
+                  orElse: () => state.myHouseholds.last,
+                );
+                context.read<CurrentHouseholdBloc>().add(SetCurrentHousehold(household: joinedHousehold));
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  Navigator.pop(context);
+                });
+              } else if (state.shouldNavigateBack) {
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  Navigator.pop(context);
+                });
+              }
             }
           },
           builder: (context, state) {
@@ -89,9 +104,7 @@ class HouseholdScreen extends StatelessWidget {
                                   Expanded(
                                     child: OutlinedButton.icon(
                                       onPressed: () {
-                                        if (kDebugMode) {
-                                          print('Opening household: ${household.name}');
-                                        }
+                                        // Set as current household and pop back
                                         context.read<CurrentHouseholdBloc>().add(
                                           SetCurrentHousehold(household: household),
                                         );
@@ -192,7 +205,15 @@ class HouseholdScreen extends StatelessWidget {
                                       : () {
                                         final inviteCode = inviteCodeController.text.trim();
                                         if (inviteCode.isNotEmpty) {
-                                          context.read<HouseholdBloc>().add(JoinHousehold(inviteCode: inviteCode));
+                                          context.read<HouseholdBloc>().add(
+                                            JoinHousehold(
+                                              inviteCode: inviteCode, // Pass the actual invite code
+                                              currentHouseholdBloc: context.read<CurrentHouseholdBloc>(),
+                                            ),
+                                          );
+                                          // Do not clear inviteCodeController here,
+                                          // as it might be needed if the BLoC needs to reference it,
+                                          // though the BLoC's JoinHousehold event now uses event.inviteCode.
                                         } else {
                                           ScaffoldMessenger.of(context).showSnackBar(
                                             const SnackBar(content: Text('Please enter an invitation code')),

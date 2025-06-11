@@ -112,12 +112,12 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
       try {
         final topPurchasedItems = await statisticsService.getTopPurchasedItems(event.householdId);
         final topExpensiveItems = await statisticsService.getTopExpensiveItems(event.householdId);
-        final totalMoneySpent = await statisticsService.getTotalMoneySpent(event.householdId); // Added
+        final totalMoneySpent = await statisticsService.getTotalMoneySpent(event.householdId);
         
         emit(StatisticsLoaded(
           topPurchasedItems: topPurchasedItems,
           topExpensiveItems: topExpensiveItems,
-          totalMoneySpent: totalMoneySpent, // Added
+          totalMoneySpent: totalMoneySpent,
           householdIdForData: event.householdId, 
         ));
       } catch (e) {

@@ -81,13 +81,10 @@ class HouseholdBloc extends Bloc<HouseholdEvent, HouseholdState> {
     on<CreateHousehold>((event, emit) async {
       emit(HouseholdLoading());
       try {
-        // Create the household
         await householdService.createHousehold(event.name);
 
-        // Get updated list of households
         final myHouseholds = await householdService.getMyHouseholds();
 
-        // Find the newly created household (assume it's the one with matching name)
         Household? newHousehold;
         for (var household in myHouseholds) {
           if (household.name == event.name) {
@@ -96,12 +93,10 @@ class HouseholdBloc extends Bloc<HouseholdEvent, HouseholdState> {
           }
         }
 
-        // Set this as the current household
         if (newHousehold != null) {
           event.currentHouseholdBloc.add(SetCurrentHousehold(household: newHousehold));
         }
 
-        // Emit success state with flag to navigate back
         emit(HouseholdLoaded(myHouseholds: myHouseholds, shouldNavigateBack: true));
       } catch (e) {
         emit(HouseholdError(error: "Failed to create household: ${e.toString()}"));
@@ -111,13 +106,10 @@ class HouseholdBloc extends Bloc<HouseholdEvent, HouseholdState> {
     on<JoinHousehold>((event, emit) async {
       emit(HouseholdLoading());
       try {
-        // Join the household
         await householdService.joinHousehold(event.inviteCode);
 
-        // Get updated list of households
         final myHouseholds = await householdService.getMyHouseholds();
 
-        // Find the newly joined household (the one with the matching invite code)
         Household? joinedHousehold;
         for (var household in myHouseholds) {
           if (household.inviteCode == event.inviteCode) {
@@ -126,12 +118,10 @@ class HouseholdBloc extends Bloc<HouseholdEvent, HouseholdState> {
           }
         }
 
-        // Set this as the current household
         if (joinedHousehold != null) {
           event.currentHouseholdBloc.add(SetCurrentHousehold(household: joinedHousehold));
         }
 
-        // Emit success state with flags for join success and navigation
         emit(HouseholdLoaded(myHouseholds: myHouseholds, joinSuccess: true, shouldNavigateBack: true));
       } catch (e) {
         emit(HouseholdError(error: "Failed to join household: ${e.toString()}"));

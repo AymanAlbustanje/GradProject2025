@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -39,7 +39,6 @@ class HouseholdScreen extends StatelessWidget {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Successfully joined household!'), backgroundColor: Colors.green),
                 );
-                // Find the joined household by invite code and select it
                 final joinedHousehold = state.myHouseholds.firstWhere(
                   (h) => h.inviteCode == inviteCodeController.text.trim(),
                   orElse: () => state.myHouseholds.last,
@@ -104,7 +103,6 @@ class HouseholdScreen extends StatelessWidget {
                                   Expanded(
                                     child: OutlinedButton.icon(
                                       onPressed: () {
-                                        // Set as current household and pop back
                                         context.read<CurrentHouseholdBloc>().add(
                                           SetCurrentHousehold(household: household),
                                         );
@@ -207,13 +205,10 @@ class HouseholdScreen extends StatelessWidget {
                                         if (inviteCode.isNotEmpty) {
                                           context.read<HouseholdBloc>().add(
                                             JoinHousehold(
-                                              inviteCode: inviteCode, // Pass the actual invite code
+                                              inviteCode: inviteCode,
                                               currentHouseholdBloc: context.read<CurrentHouseholdBloc>(),
                                             ),
                                           );
-                                          // Do not clear inviteCodeController here,
-                                          // as it might be needed if the BLoC needs to reference it,
-                                          // though the BLoC's JoinHousehold event now uses event.inviteCode.
                                         } else {
                                           ScaffoldMessenger.of(context).showSnackBar(
                                             const SnackBar(content: Text('Please enter an invitation code')),

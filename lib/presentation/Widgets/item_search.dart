@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously, avoid_print
+// ignore_for_file: use_build_context_synchronously, avoid_print
 
 import 'dart:async';
 import 'dart:convert';
@@ -547,22 +547,18 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                             }
                           }
 
-                          // Clear search state immediately to provide visual feedback
                           setState(() {
                             _searchResults = [];
                             _searchController.clear();
                           });
 
-                          // Show success message
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('${item['name'] ?? "Item"} added to household successfully')),
                           );
 
-                          // Ensure we always refresh the InHouseBloc regardless of widget mounting state
                           if (context.mounted) {
                             final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
                             if (currentHouseholdState is CurrentHouseholdSet) {
-                              // Force refresh with a slight delay to ensure the API operation completes
                               Future.delayed(const Duration(milliseconds: 300), () {
                                 if (context.mounted) {
                                   context.read<InHouseBloc>().add(
@@ -583,7 +579,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                           );
                         }
                       } catch (e) {
-                        // Show error message instead of success
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -611,7 +606,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
       return;
     }
 
-    // Unfocus current text field before showing the dialog
     FocusScope.of(context).unfocus();
 
     final BuildContext currentContext = context;
@@ -670,7 +664,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
                 ],
               ),
               content: SizedBox(
-                // Wrap content in SizedBox with a defined width
                 width: dialogContentWidth,
                 child: SingleChildScrollView(
                   child: Form(
@@ -1009,7 +1002,6 @@ class ItemSearchWidgetState extends State<ItemSearchWidget> {
           }
         });
 
-        // Refresh the InHouseBloc with a delay to ensure API operation completes
         if (mounted) {
           final currentHouseholdState = context.read<CurrentHouseholdBloc>().state;
           if (currentHouseholdState is CurrentHouseholdSet) {
